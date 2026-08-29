@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
+import { Eye, EyeSlash } from 'phosphor-react-native';
 import type { TabScreenProps } from '../navigation/types';
 import { Screen } from '../components/Screen';
 import { Card } from '../components/Card';
@@ -36,12 +38,21 @@ function formatStamp(iso: string) {
 const ROLE_LABEL: Record<DeviceRole, string> = { host: 'Main host', verifier: 'Door verifier' };
 
 export function ReservationsListScreen({ navigation }: Props) {
-  const { batches, getEvent, deviceRole, setDeviceRole, checkHostKey } = useData();
+  const { batches, getEvent, deviceRole, setDeviceRole, checkHostKey, hostMasterKey } = useData();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pendingHostSwitch, setPendingHostSwitch] = useState(false);
   const [hostKeyInput, setHostKeyInput] = useState('');
   const [hostKeyError, setHostKeyError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
+  const [masterKeyVisible, setMasterKeyVisible] = useState(false);
+  const [masterKeyCopied, setMasterKeyCopied] = useState(false);
+
+  const copyMasterKey = async () => {
+    if (!hostMasterKey) return;
+    await Clipboard.setStringAsync(hostMasterKey);
+    setMasterKeyCopied(true);
+    setTimeout(() => setMasterKeyCopied(false), 1500);
+  };
 
   const closePicker = () => {
     setPickerOpen(false);
@@ -103,6 +114,27 @@ export function ReservationsListScreen({ navigation }: Props) {
         ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
         ListEmptyComponent={<Text style={styles.empty}>No reservations yet.</Text>}
       />
+      {deviceRole === 'host' && hostMasterKey ? (
+        <View style={styles.masterKeyRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.masterKeyLabel}>This device's recovery key</Text>
+            <Text style={styles.masterKeyValue}>
+              {masterKeyVisible ? hostMasterKey : '•'.repeat(hostMasterKey.length)}
+            </Text>
+          </View>
+          <Pressable onPress={() => setMasterKeyVisible((v) => !v)} hitSlop={10} style={{ padding: 4 }}>
+            {masterKeyVisible ? (
+              <EyeSlash size={17} color="rgba(233,233,237,0.6)" />
+            ) : (
+              <Eye size={17} color="rgba(233,233,237,0.6)" />
+            )}
+          </Pressable>
+          <Pressable onPress={copyMasterKey} hitSlop={10} style={{ padding: 4 }}>
+            <Text style={styles.masterKeyCopy}>{masterKeyCopied ? 'Copied' : 'Copy'}</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
       <Pressable style={styles.roleRow} onPress={() => setPickerOpen(true)}>
         <Text style={styles.roleText}>
           Device role: <Text style={styles.roleValue}>{deviceRole ? ROLE_LABEL[deviceRole] : '—'}</Text>
@@ -119,10 +151,11 @@ export function ReservationsListScreen({ navigation }: Props) {
                 <Text style={styles.sheetBody}>
                   To stop verifier devices switching themselves to host by accident, becoming
                   host requires the code for an event this device already knows — ask whoever
-                  created the event for it.
+                  created the event for it. Lost that code? The host's own recovery key (shown
+                  on their device under Reservations) also works, for any event they created.
                 </Text>
                 <Field
-                  label="Host code"
+                  label="Host code or recovery key"
                   placeholder="000000"
                   value={hostKeyInput}
                   onChangeText={(v) => { setHostKeyInput(v); setHostKeyError(null); }}
@@ -175,6 +208,15 @@ const styles = StyleSheet.create({
   roleText: { fontSize: 11.5, color: 'rgba(233,233,237,0.5)', fontFamily: fonts.body },
   roleValue: { color: 'rgba(233,233,237,0.75)', fontFamily: fonts.bodyMedium },
   roleChange: { fontSize: 11.5, color: colors.accent, fontFamily: fonts.bodyMedium },
+  masterKeyRow: {
+    position: 'absolute', left: 20, right: 20, bottom: 138,
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingVertical: 8, paddingHorizontal: 10,
+    backgroundColor: 'rgba(233,233,237,0.05)', borderRadius: radius.md,
+  },
+  masterKeyLabel: { fontSize: 10, color: 'rgba(233,233,237,0.45)', fontFamily: fonts.body },
+  masterKeyValue: { fontSize: 13, color: colors.accent2, fontFamily: fonts.mono, letterSpacing: 1, marginTop: 2 },
+  masterKeyCopy: { fontSize: 11.5, color: colors.accent, fontFamily: fonts.bodyMedium },
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center', padding: 24 },
   sheet: { width: '100%', maxWidth: 380, backgroundColor: colors.surface, borderRadius: radius.lg, padding: 18, gap: 14 },
   sheetTitle: { fontFamily: fonts.heading, fontSize: 17, color: colors.text },

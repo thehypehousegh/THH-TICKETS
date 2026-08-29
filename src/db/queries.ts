@@ -1,5 +1,6 @@
 import { type SQLiteDatabase } from 'expo-sqlite';
-import { generateHostKey, makeCode, salt, uid, SALT_LENGTH } from '../utils/codes';
+import { generateHostKey, generateMasterKey, makeCode, salt, uid, SALT_LENGTH } from '../utils/codes';
+import { HOST_MASTER_KEY_SETTING_KEY } from './role';
 import type { BatchRecord, EventRecord, NewEventInput, TicketSelection } from './types';
 
 function earliestNonNull(a: string | null, b: string | null): string | null {
@@ -17,6 +18,16 @@ export async function setSetting(db: SQLiteDatabase, key: string, value: string)
   await db.runAsync('INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)', [key, value]);
 }
 
+/** This device's own recovery master key, generating and persisting one the
+ * first time it's needed (i.e. the first time this device becomes host). */
+export async function getOrCreateHostMasterKey(db: SQLiteDatabase): Promise<string> {
+  const existing = await getSetting(db, HOST_MASTER_KEY_SETTING_KEY);
+  if (existing) return existing;
+  const key = generateMasterKey();
+  await setSetting(db, HOST_MASTER_KEY_SETTING_KEY, key);
+  return key;
+}
+
 interface EventRow {
   id: string;
   name: string;
@@ -29,6 +40,7 @@ interface EventRow {
   thh_first: number;
   created_at: string;
   host_key: string;
+  host_master_key: string;
 }
 
 interface TicketTypeRow {
@@ -69,6 +81,7 @@ export async function fetchEvents(db: SQLiteDatabase): Promise<EventRecord[]> {
     thhFirst: !!row.thh_first,
     createdAt: row.created_at,
     hostKey: row.host_key,
+    hostMasterKey: row.host_master_key,
     types: typeRows
       .filter((t) => t.event_id === row.id)
       .map((t) => ({ id: t.id, label: t.label, code: t.code })),
@@ -100,13 +113,14 @@ export async function insertEvent(db: SQLiteDatabase, input: NewEventInput): Pro
   const createdAt = new Date().toISOString();
   const eventSalt = salt(SALT_LENGTH);
   const hostKey = generateHostKey();
+  const hostMasterKey = await getOrCreateHostMasterKey(db);
   const types = input.types.filter((t) => t.label.trim());
 
   await db.withTransactionAsync(async () => {
     await db.runAsync(
-      `INSERT INTO events (id, name, venue, date, time, description, abbr, salt, thh_first, created_at, host_key)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, input.name, input.venue, input.date, input.time, input.description, input.abbr, eventSalt, input.thhFirst ? 1 : 0, createdAt, hostKey]
+      `INSERT INTO events (id, name, venue, date, time, description, abbr, salt, thh_first, created_at, host_key, host_master_key)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, input.name, input.venue, input.date, input.time, input.description, input.abbr, eventSalt, input.thhFirst ? 1 : 0, createdAt, hostKey, hostMasterKey]
     );
     for (let i = 0; i < types.length; i++) {
       await db.runAsync(
@@ -128,6 +142,7 @@ export async function insertEvent(db: SQLiteDatabase, input: NewEventInput): Pro
     thhFirst: input.thhFirst,
     createdAt,
     hostKey,
+    hostMasterKey,
     types: types.map((t) => ({ id: uid(), label: t.label.trim(), code: (t.code || t.label[0]).toUpperCase() })),
   };
 }
@@ -175,6 +190,26 @@ export async function setCodeUsedAsync(db: SQLiteDatabase, codeId: string, used:
   await db.runAsync('UPDATE codes SET used_at = ? WHERE id = ?', [used ? new Date().toISOString() : null, codeId]);
 }
 
+/**
+ * Deletes one generated code. If it was the last code in its batch, the
+ * now-empty batch is deleted too rather than left behind as a dangling
+ * reservation with nothing in it.
+ */
+export async function deleteCode(db: SQLiteDatabase, codeId: string): Promise<void> {
+  await db.withTransactionAsync(async () => {
+    const row = await db.getFirstAsync<{ batch_id: string }>('SELECT batch_id FROM codes WHERE id = ?', [codeId]);
+    if (!row) return;
+    await db.runAsync('DELETE FROM codes WHERE id = ?', [codeId]);
+    const remaining = await db.getFirstAsync<{ count: number }>(
+      'SELECT COUNT(*) as count FROM codes WHERE batch_id = ?',
+      [row.batch_id]
+    );
+    if ((remaining?.count ?? 0) === 0) {
+      await db.runAsync('DELETE FROM batches WHERE id = ?', [row.batch_id]);
+    }
+  });
+}
+
 export async function deleteEvent(db: SQLiteDatabase, eventId: string): Promise<void> {
   await db.withTransactionAsync(async () => {
     await db.runAsync(
@@ -196,7 +231,10 @@ export async function deleteEvent(db: SQLiteDatabase, eventId: string): Promise<
 export async function isKnownHostKey(db: SQLiteDatabase, key: string): Promise<boolean> {
   const trimmed = key.trim();
   if (!trimmed) return false;
-  const row = await db.getFirstAsync<{ id: string }>('SELECT id FROM events WHERE host_key = ?', [trimmed]);
+  const row = await db.getFirstAsync<{ id: string }>(
+    'SELECT id FROM events WHERE host_key = ? OR host_master_key = ?',
+    [trimmed, trimmed]
+  );
   return !!row;
 }
 
@@ -213,6 +251,7 @@ export interface EventImportPayload {
     thhFirst: boolean;
     createdAt: string;
     hostKey: string;
+    hostMasterKey: string;
   };
   types: { id: string; label: string; code: string }[];
   batches: {
@@ -241,14 +280,14 @@ export async function importEvent(db: SQLiteDatabase, payload: EventImportPayloa
     const existingEvent = await db.getFirstAsync<{ id: string }>('SELECT id FROM events WHERE id = ?', [event.id]);
     if (existingEvent) {
       await db.runAsync(
-        `UPDATE events SET name = ?, venue = ?, date = ?, time = ?, description = ?, abbr = ?, salt = ?, thh_first = ?, host_key = ? WHERE id = ?`,
-        [event.name, event.venue, event.date, event.time, event.description, event.abbr, event.salt, event.thhFirst ? 1 : 0, event.hostKey, event.id]
+        `UPDATE events SET name = ?, venue = ?, date = ?, time = ?, description = ?, abbr = ?, salt = ?, thh_first = ?, host_key = ?, host_master_key = ? WHERE id = ?`,
+        [event.name, event.venue, event.date, event.time, event.description, event.abbr, event.salt, event.thhFirst ? 1 : 0, event.hostKey, event.hostMasterKey, event.id]
       );
     } else {
       await db.runAsync(
-        `INSERT INTO events (id, name, venue, date, time, description, abbr, salt, thh_first, created_at, host_key)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [event.id, event.name, event.venue, event.date, event.time, event.description, event.abbr, event.salt, event.thhFirst ? 1 : 0, event.createdAt, event.hostKey]
+        `INSERT INTO events (id, name, venue, date, time, description, abbr, salt, thh_first, created_at, host_key, host_master_key)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [event.id, event.name, event.venue, event.date, event.time, event.description, event.abbr, event.salt, event.thhFirst ? 1 : 0, event.createdAt, event.hostKey, event.hostMasterKey]
       );
     }
 

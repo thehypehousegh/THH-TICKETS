@@ -32,6 +32,7 @@ export function buildEventExport(event: EventRecord, batches: BatchRecord[]) {
       thhFirst: event.thhFirst,
       createdAt: event.createdAt,
       hostKey: event.hostKey,
+      hostMasterKey: event.hostMasterKey,
     },
     types: event.types.map((t) => ({ id: t.id, label: t.label, code: t.code })),
     batches: batches.map((b) => ({
@@ -107,6 +108,7 @@ export async function pickAndParseEventImport(): Promise<ImportOutcome> {
       event: {
         ...parsed.event,
         hostKey: typeof parsed.event.hostKey === 'string' ? parsed.event.hostKey : '',
+        hostMasterKey: typeof parsed.event.hostMasterKey === 'string' ? parsed.event.hostMasterKey : '',
       },
       types: Array.isArray(parsed.types) ? parsed.types : [],
       batches: parsed.batches,

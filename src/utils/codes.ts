@@ -32,6 +32,17 @@ export function generateHostKey(): string {
   return s;
 }
 
+const MASTER_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+
+/** A longer, harder-to-guess recovery code generated once per host device
+ * (not per event) — a fallback for when the specific event's own host_key
+ * wasn't saved. Travels with every event that device creates. */
+export function generateMasterKey(): string {
+  let s = '';
+  for (let i = 0; i < 12; i++) s += MASTER_ALPHABET[Math.floor(Math.random() * MASTER_ALPHABET.length)];
+  return s;
+}
+
 export interface EventLike {
   name: string;
   venue: string;

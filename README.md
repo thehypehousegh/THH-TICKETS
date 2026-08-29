@@ -63,6 +63,17 @@ event's export file, so it's only as secret as who you hand that file to — but
 is no server here to check a password against, so this is the strongest check
 possible while staying fully offline.
 
+**Lost or never-saved an event's host code?** Each host phone also generates its own
+longer **recovery key** the first time it becomes host — a fallback that works for
+*any* event that phone created, not just one. It's shown (with a tap-to-reveal and a
+copy button) on the Reservations tab, host phones only, right above the device-role
+row. It travels the same way the per-event code does — inside that phone's event
+export files, nothing more — and there's deliberately no fixed, hardcoded key
+anywhere in this source tree: since this repo is public, a single shared master
+password baked into the code would be visible to literally anyone on GitHub. A
+key generated locally per host device, that never appears in source at all, doesn't
+have that problem.
+
 ## Getting other phones ready for door duty
 
 Since there's no server and no live sync between devices, install the app (above) on
@@ -189,7 +200,9 @@ nothing extra needs installing.
   role is verifier.
 - Each event's `hostKey` (`src/utils/codes.ts`'s `generateHostKey`, checked via
   `isKnownHostKey` in `src/db/queries.ts`) — the code a verifier device must supply
-  to promote itself to host.
+  to promote itself to host. Alongside it, each host device's own `hostMasterKey`
+  (`generateMasterKey`, stored in `app_settings` and stamped onto every event that
+  device creates) works as a fallback for the same check — see "Device roles" above.
 - `.github/workflows/android-apk.yml` — builds the Android APK and publishes it to
   the `latest` GitHub Release on every push to `main`.
 - `.github/keystore/debug.keystore` — a fixed debug signing key, committed on
@@ -218,6 +231,14 @@ nothing extra needs installing.
   it again, since re-importing that file brings it all back. This is the intended
   way to keep app storage from growing forever: once an event is over and you have
   its report, delete it here rather than leaving it in the list indefinitely.
+- **Deleting a single code** (host-only, the trash icon next to a code on the
+  Output screen) removes just that one code; if it was the only code in its
+  reservation, the now-empty reservation is removed too. Also permanent — same
+  reasoning as deleting an event.
+- Code generation is host-only end to end, not just hidden from verifier phones:
+  `GenerateScreen` and `CreateEventScreen` both refuse outright if the device role
+  isn't host, closing a gap where a verifier could previously reach the generate
+  screen via the "Generate another" button on a reservation it was only viewing.
 - Two schema fixes worth knowing about if you're digging into `src/db/schema.ts`:
   `PRAGMA foreign_keys` wasn't being turned on at all (SQLite defaults it off per
   connection), so the `ON DELETE CASCADE` clauses were silently inert until this

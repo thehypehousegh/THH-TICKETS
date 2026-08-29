@@ -16,6 +16,7 @@ export interface EventRecord {
   thhFirst: boolean;
   createdAt: string;
   hostKey: string;
+  hostMasterKey: string;
   types: TicketType[];
 }
 

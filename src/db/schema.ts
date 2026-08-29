@@ -1,5 +1,7 @@
 import { type SQLiteDatabase } from 'expo-sqlite';
 import { generateHostKey } from '../utils/codes';
+import { DEVICE_ROLE_SETTING_KEY } from './role';
+import { getOrCreateHostMasterKey } from './queries';
 
 export const DATABASE_NAME = 'thh-tickets.db';
 
@@ -69,6 +71,24 @@ const MIGRATIONS: Migration[] = [
     for (const row of rows) {
       await db.runAsync('UPDATE events SET host_key = ? WHERE id = ?', [generateHostKey(), row.id]);
     }
+  },
+  // v5 — each event also carries its creating host device's own recovery
+  // master key, so "I forgot to save this one event's code" has a fallback
+  // that doesn't require hardcoding any secret in this (public) source tree
+  `
+    ALTER TABLE events ADD COLUMN host_master_key TEXT NOT NULL DEFAULT '';
+  `,
+  // v6 — if this device is (or has been) host, give it a master key now and
+  // backfill it onto any of its own events created before v5 existed
+  async (db: SQLiteDatabase) => {
+    const roleRow = await db.getFirstAsync<{ value: string }>(
+      'SELECT value FROM app_settings WHERE key = ?',
+      [DEVICE_ROLE_SETTING_KEY]
+    );
+    if (roleRow?.value !== 'host') return;
+
+    const masterKey = await getOrCreateHostMasterKey(db);
+    await db.runAsync("UPDATE events SET host_master_key = ? WHERE host_master_key = ''", [masterKey]);
   },
 ];
 

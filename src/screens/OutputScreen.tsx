@@ -1,8 +1,8 @@
 import React, { useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import QRCode from 'react-native-qrcode-svg';
-import { ArrowRight, ClipboardText, Copy, DownloadSimple, QrCode as QrCodeIcon, ShareNetwork } from 'phosphor-react-native';
+import { ArrowRight, ClipboardText, Copy, DownloadSimple, QrCode as QrCodeIcon, ShareNetwork, Trash } from 'phosphor-react-native';
 import type { RootScreenProps } from '../navigation/types';
 import { Screen } from '../components/Screen';
 import { Button } from '../components/Button';
@@ -36,7 +36,7 @@ function formatStamp(iso: string) {
 
 export function OutputScreen({ route, navigation }: Props) {
   const { batchId } = route.params;
-  const { getBatch, getEvent, deviceRole } = useData();
+  const { getBatch, getEvent, deviceRole, deleteCodeData } = useData();
   const isHost = deviceRole === 'host';
   const { flash } = useToast();
   const batch = getBatch(batchId);
@@ -44,6 +44,7 @@ export function OutputScreen({ route, navigation }: Props) {
   const [qrCodeId, setQrCodeId] = useState<string | null>(null);
   const [savingAll, setSavingAll] = useState(false);
   const [sharingAll, setSharingAll] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const qrRefs = useRef<Record<string, QrRef>>({});
 
   useScreenCaptureGuard(!isHost);
@@ -92,6 +93,33 @@ export function OutputScreen({ route, navigation }: Props) {
     }
   };
 
+  const onDeleteCode = (codeId: string, code: string) => {
+    Alert.alert(
+      'Delete this code?',
+      `This permanently removes ${code} from this device. This can't be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setDeletingId(codeId);
+            try {
+              await deleteCodeData(codeId);
+              if (batch.codes.length <= 1) {
+                navigation.goBack();
+              }
+            } catch {
+              flash('Could not delete code');
+            } finally {
+              setDeletingId(null);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const shareAllQr = async () => {
     setSharingAll(true);
     try {
@@ -129,6 +157,16 @@ export function OutputScreen({ route, navigation }: Props) {
               <Pressable style={styles.qrBtn} onPress={() => setQrCodeId(c.id)} hitSlop={8}>
                 <QrCodeIcon size={20} color={colors.accent} />
               </Pressable>
+              {isHost ? (
+                <Pressable
+                  style={styles.qrBtn}
+                  onPress={() => onDeleteCode(c.id, c.code)}
+                  disabled={deletingId === c.id}
+                  hitSlop={8}
+                >
+                  <Trash size={19} color="#e0705a" />
+                </Pressable>
+              ) : null}
             </View>
           ))}
         </View>
@@ -181,13 +219,15 @@ export function OutputScreen({ route, navigation }: Props) {
         </View>
       ) : null}
 
-      <Button
-        variant="ghost"
-        title="Generate another"
-        onPress={() => navigation.navigate('Generate', { eventId: event.id })}
-        icon={<ArrowRight size={14} color={colors.accent} />}
-        style={{ alignSelf: 'flex-start' }}
-      />
+      {isHost ? (
+        <Button
+          variant="ghost"
+          title="Generate another"
+          onPress={() => navigation.navigate('Generate', { eventId: event.id })}
+          icon={<ArrowRight size={14} color={colors.accent} />}
+          style={{ alignSelf: 'flex-start' }}
+        />
+      ) : null}
 
       <View style={styles.copyPreview}>
         <Text style={styles.copyLabel}>WHAT GETS COPIED</Text>

@@ -24,7 +24,7 @@ interface TypeDraft {
 }
 
 export function CreateEventScreen({ navigation }: Props) {
-  const { createEvent } = useData();
+  const { createEvent, deviceRole } = useData();
   const { flash } = useToast();
   const [name, setName] = useState('');
   const [venue, setVenue] = useState('');
@@ -40,6 +40,16 @@ export function CreateEventScreen({ navigation }: Props) {
   const [nextKey, setNextKey] = useState(2);
   const [saving, setSaving] = useState(false);
   const previewSalt = useMemo(() => makeSalt(SALT_LENGTH), []);
+
+  if (deviceRole !== 'host') {
+    return (
+      <Screen>
+        <BackButton label="Events" onPress={() => navigation.goBack()} />
+        <Text style={styles.title}>Host only</Text>
+        <Text style={styles.previewHint}>Only the main host device can create events.</Text>
+      </Screen>
+    );
+  }
 
   const previewAbbr = (abbr || (name ? abbrFromName(name) : 'EVT')).toUpperCase();
   const preview = thhFirst

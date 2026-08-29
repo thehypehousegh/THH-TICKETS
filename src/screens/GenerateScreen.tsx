@@ -17,7 +17,7 @@ type Props = RootScreenProps<'Generate'>;
 
 export function GenerateScreen({ route, navigation }: Props) {
   const { eventId } = route.params;
-  const { getEvent, generateCodes } = useData();
+  const { getEvent, generateCodes, deviceRole } = useData();
   const event = getEvent(eventId);
 
   const [person, setPerson] = useState('');
@@ -31,6 +31,16 @@ export function GenerateScreen({ route, navigation }: Props) {
       <Screen>
         <BackButton label="Back" onPress={() => navigation.goBack()} />
         <Text style={styles.title}>Event not found.</Text>
+      </Screen>
+    );
+  }
+
+  if (deviceRole !== 'host') {
+    return (
+      <Screen>
+        <BackButton label={event.abbr} onPress={() => navigation.goBack()} />
+        <Text style={styles.title}>Host only</Text>
+        <Text style={styles.emptyHint}>Only the main host device can generate ticket codes.</Text>
       </Screen>
     );
   }
