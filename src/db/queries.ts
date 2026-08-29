@@ -1,5 +1,5 @@
 import { type SQLiteDatabase } from 'expo-sqlite';
-import { makeCode, salt, uid, SALT_LENGTH } from '../utils/codes';
+import { generateHostKey, makeCode, salt, uid, SALT_LENGTH } from '../utils/codes';
 import type { BatchRecord, EventRecord, NewEventInput, TicketSelection } from './types';
 
 function earliestNonNull(a: string | null, b: string | null): string | null {
@@ -28,6 +28,7 @@ interface EventRow {
   salt: string;
   thh_first: number;
   created_at: string;
+  host_key: string;
 }
 
 interface TicketTypeRow {
@@ -67,6 +68,7 @@ export async function fetchEvents(db: SQLiteDatabase): Promise<EventRecord[]> {
     salt: row.salt,
     thhFirst: !!row.thh_first,
     createdAt: row.created_at,
+    hostKey: row.host_key,
     types: typeRows
       .filter((t) => t.event_id === row.id)
       .map((t) => ({ id: t.id, label: t.label, code: t.code })),
@@ -97,13 +99,14 @@ export async function insertEvent(db: SQLiteDatabase, input: NewEventInput): Pro
   const id = uid();
   const createdAt = new Date().toISOString();
   const eventSalt = salt(SALT_LENGTH);
+  const hostKey = generateHostKey();
   const types = input.types.filter((t) => t.label.trim());
 
   await db.withTransactionAsync(async () => {
     await db.runAsync(
-      `INSERT INTO events (id, name, venue, date, time, description, abbr, salt, thh_first, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, input.name, input.venue, input.date, input.time, input.description, input.abbr, eventSalt, input.thhFirst ? 1 : 0, createdAt]
+      `INSERT INTO events (id, name, venue, date, time, description, abbr, salt, thh_first, created_at, host_key)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, input.name, input.venue, input.date, input.time, input.description, input.abbr, eventSalt, input.thhFirst ? 1 : 0, createdAt, hostKey]
     );
     for (let i = 0; i < types.length; i++) {
       await db.runAsync(
@@ -124,6 +127,7 @@ export async function insertEvent(db: SQLiteDatabase, input: NewEventInput): Pro
     salt: eventSalt,
     thhFirst: input.thhFirst,
     createdAt,
+    hostKey,
     types: types.map((t) => ({ id: uid(), label: t.label.trim(), code: (t.code || t.label[0]).toUpperCase() })),
   };
 }
@@ -171,6 +175,19 @@ export async function setCodeUsedAsync(db: SQLiteDatabase, codeId: string, used:
   await db.runAsync('UPDATE codes SET used_at = ? WHERE id = ?', [used ? new Date().toISOString() : null, codeId]);
 }
 
+/**
+ * A verifier device proves it has real authorization to become host by
+ * producing the host code of any event it already knows about — this device
+ * only knows an event's code if it created that event, or received it via a
+ * legitimate export from whoever did.
+ */
+export async function isKnownHostKey(db: SQLiteDatabase, key: string): Promise<boolean> {
+  const trimmed = key.trim();
+  if (!trimmed) return false;
+  const row = await db.getFirstAsync<{ id: string }>('SELECT id FROM events WHERE host_key = ?', [trimmed]);
+  return !!row;
+}
+
 export interface EventImportPayload {
   event: {
     id: string;
@@ -183,6 +200,7 @@ export interface EventImportPayload {
     salt: string;
     thhFirst: boolean;
     createdAt: string;
+    hostKey: string;
   };
   types: { id: string; label: string; code: string }[];
   batches: {
@@ -211,14 +229,14 @@ export async function importEvent(db: SQLiteDatabase, payload: EventImportPayloa
     const existingEvent = await db.getFirstAsync<{ id: string }>('SELECT id FROM events WHERE id = ?', [event.id]);
     if (existingEvent) {
       await db.runAsync(
-        `UPDATE events SET name = ?, venue = ?, date = ?, time = ?, description = ?, abbr = ?, salt = ?, thh_first = ? WHERE id = ?`,
-        [event.name, event.venue, event.date, event.time, event.description, event.abbr, event.salt, event.thhFirst ? 1 : 0, event.id]
+        `UPDATE events SET name = ?, venue = ?, date = ?, time = ?, description = ?, abbr = ?, salt = ?, thh_first = ?, host_key = ? WHERE id = ?`,
+        [event.name, event.venue, event.date, event.time, event.description, event.abbr, event.salt, event.thhFirst ? 1 : 0, event.hostKey, event.id]
       );
     } else {
       await db.runAsync(
-        `INSERT INTO events (id, name, venue, date, time, description, abbr, salt, thh_first, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [event.id, event.name, event.venue, event.date, event.time, event.description, event.abbr, event.salt, event.thhFirst ? 1 : 0, event.createdAt]
+        `INSERT INTO events (id, name, venue, date, time, description, abbr, salt, thh_first, created_at, host_key)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [event.id, event.name, event.venue, event.date, event.time, event.description, event.abbr, event.salt, event.thhFirst ? 1 : 0, event.createdAt, event.hostKey]
       );
     }
 

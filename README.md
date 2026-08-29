@@ -52,7 +52,16 @@ it opens, it asks what this phone is:
   showing code or QR content — nothing to distribute, only to check in.
 
 You can change a phone's role later from the Reservations tab (tap "Change" next to
-"Device role" near the bottom) if you need to repurpose one.
+"Device role" near the bottom). Going from host → verifier is free (stepping down
+never needs permission), but a verifier switching itself to host has to enter a
+**host code** — a 6-digit PIN generated for each event when it's created, shown on
+that event's page to whoever's set as host. This exists specifically so a verifier
+device can't just tap its way into full host access; without a code matching some
+event it already knows about, the switch is refused. It's a deterrent against the
+casual/accidental case, not real cryptography — the code does travel inside the
+event's export file, so it's only as secret as who you hand that file to — but there
+is no server here to check a password against, so this is the strongest check
+possible while staying fully offline.
 
 ## Getting other phones ready for door duty
 
@@ -172,6 +181,9 @@ nothing extra needs installing.
 - `src/utils/screenCaptureGuard.ts` — blocks screenshots/screen recording (via
   `expo-screen-capture`) on any screen showing code/QR content, while the device
   role is verifier.
+- Each event's `hostKey` (`src/utils/codes.ts`'s `generateHostKey`, checked via
+  `isKnownHostKey` in `src/db/queries.ts`) — the code a verifier device must supply
+  to promote itself to host.
 - `.github/workflows/android-apk.yml` — builds the Android APK and publishes it to
   the `latest` GitHub Release on every push to `main`.
 - `.github/keystore/debug.keystore` — a fixed debug signing key, committed on

@@ -24,6 +24,14 @@ export function uid(): string {
   return Math.random().toString(36).slice(2, 9);
 }
 
+/** A short spoken-friendly PIN, generated once per event, that a verifier
+ * device must enter to promote itself back to host — see PromoteToHostModal. */
+export function generateHostKey(): string {
+  let s = '';
+  for (let i = 0; i < 6; i++) s += String(Math.floor(Math.random() * 10));
+  return s;
+}
+
 export interface EventLike {
   name: string;
   venue: string;

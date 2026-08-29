@@ -108,6 +108,13 @@ export function EventDetailScreen({ route, navigation }: Props) {
       </View>
 
       {isHost ? (
+        <Text style={styles.hostKeyNote}>
+          Host code: <Text style={styles.hostKeyValue}>{event.hostKey}</Text> — needed by a
+          verifier device to switch itself to host for this event.
+        </Text>
+      ) : null}
+
+      {isHost ? (
         <>
           <Button
             variant="primary"
@@ -217,6 +224,8 @@ const styles = StyleSheet.create({
   desc: { fontSize: 12.5, lineHeight: 18, color: 'rgba(233,233,237,0.74)', fontFamily: fonts.body },
   tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
   tagCode: { fontFamily: fonts.mono, color: colors.accent },
+  hostKeyNote: { fontSize: 11.5, lineHeight: 16, color: 'rgba(233,233,237,0.45)', fontFamily: fonts.body },
+  hostKeyValue: { fontFamily: fonts.monoMedium, color: colors.accent, letterSpacing: 1 },
   issuedRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
   sectionLabel: { fontFamily: fonts.headingSemibold, fontSize: 10, letterSpacing: 1.8, color: 'rgba(233,233,237,0.6)' },
   issuedMeta: { fontSize: 11, color: 'rgba(233,233,237,0.45)', fontFamily: fonts.body },

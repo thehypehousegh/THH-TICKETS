@@ -7,6 +7,7 @@ import {
   importEvent,
   insertBatch,
   insertEvent,
+  isKnownHostKey,
   setCodeUsedAsync,
   setSetting,
   type EventImportPayload,
@@ -20,6 +21,7 @@ interface DataContextValue {
   batches: BatchRecord[];
   deviceRole: DeviceRole | null;
   setDeviceRole: (role: DeviceRole) => Promise<void>;
+  checkHostKey: (key: string) => Promise<boolean>;
   getEvent: (id: string) => EventRecord | undefined;
   getBatch: (id: string) => BatchRecord | undefined;
   batchesForEvent: (eventId: string) => BatchRecord[];
@@ -69,6 +71,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     [db]
   );
 
+  const checkHostKey = useCallback((key: string) => isKnownHostKey(db, key), [db]);
+
   const createEvent = useCallback(
     async (input: NewEventInput) => {
       const event = await insertEvent(db, input);
@@ -113,6 +117,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       batches,
       deviceRole,
       setDeviceRole,
+      checkHostKey,
       getEvent,
       getBatch,
       batchesForEvent,
@@ -128,6 +133,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       batches,
       deviceRole,
       setDeviceRole,
+      checkHostKey,
       getEvent,
       getBatch,
       batchesForEvent,

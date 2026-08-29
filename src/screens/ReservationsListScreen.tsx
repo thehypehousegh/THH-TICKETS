@@ -5,6 +5,8 @@ import { Screen } from '../components/Screen';
 import { Card } from '../components/Card';
 import { Divider } from '../components/Divider';
 import { RoleChoice } from '../components/RoleChoice';
+import { Field } from '../components/Field';
+import { Button } from '../components/Button';
 import { useData } from '../db/DataContext';
 import { colors, fonts, radius } from '../theme/tokens';
 import type { BatchRecord } from '../db/types';
@@ -34,8 +36,43 @@ function formatStamp(iso: string) {
 const ROLE_LABEL: Record<DeviceRole, string> = { host: 'Main host', verifier: 'Door verifier' };
 
 export function ReservationsListScreen({ navigation }: Props) {
-  const { batches, getEvent, deviceRole, setDeviceRole } = useData();
+  const { batches, getEvent, deviceRole, setDeviceRole, checkHostKey } = useData();
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [pendingHostSwitch, setPendingHostSwitch] = useState(false);
+  const [hostKeyInput, setHostKeyInput] = useState('');
+  const [hostKeyError, setHostKeyError] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
+
+  const closePicker = () => {
+    setPickerOpen(false);
+    setPendingHostSwitch(false);
+    setHostKeyInput('');
+    setHostKeyError(null);
+  };
+
+  const onSelectRole = async (role: DeviceRole) => {
+    if (deviceRole === 'verifier' && role === 'host') {
+      setPendingHostSwitch(true);
+      return;
+    }
+    await setDeviceRole(role);
+    closePicker();
+  };
+
+  const onConfirmHostKey = async () => {
+    setChecking(true);
+    try {
+      const ok = await checkHostKey(hostKeyInput);
+      if (!ok) {
+        setHostKeyError("That code doesn't match any event on this device.");
+        return;
+      }
+      await setDeviceRole('host');
+      closePicker();
+    } finally {
+      setChecking(false);
+    }
+  };
 
   const renderItem = ({ item }: { item: BatchRecord }) => {
     const event = getEvent(item.eventId);
@@ -73,17 +110,45 @@ export function ReservationsListScreen({ navigation }: Props) {
         <Text style={styles.roleChange}>Change</Text>
       </Pressable>
 
-      <Modal visible={pickerOpen} transparent animationType="fade" onRequestClose={() => setPickerOpen(false)}>
-        <Pressable style={styles.backdrop} onPress={() => setPickerOpen(false)}>
+      <Modal visible={pickerOpen} transparent animationType="fade" onRequestClose={closePicker}>
+        <Pressable style={styles.backdrop} onPress={closePicker}>
           <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
-            <Text style={styles.sheetTitle}>Change device role</Text>
-            <RoleChoice
-              value={deviceRole}
-              onSelect={async (role) => {
-                await setDeviceRole(role);
-                setPickerOpen(false);
-              }}
-            />
+            {pendingHostSwitch ? (
+              <>
+                <Text style={styles.sheetTitle}>Enter a host code</Text>
+                <Text style={styles.sheetBody}>
+                  To stop verifier devices switching themselves to host by accident, becoming
+                  host requires the code for an event this device already knows — ask whoever
+                  created the event for it.
+                </Text>
+                <Field
+                  label="Host code"
+                  placeholder="000000"
+                  value={hostKeyInput}
+                  onChangeText={(v) => { setHostKeyInput(v); setHostKeyError(null); }}
+                  keyboardType="number-pad"
+                  autoFocus
+                  style={{ fontFamily: fonts.mono, letterSpacing: 4, textAlign: 'center', fontSize: 18 }}
+                />
+                {hostKeyError ? <Text style={styles.errorText}>{hostKeyError}</Text> : null}
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <Button variant="ghost" title="Back" onPress={() => setPendingHostSwitch(false)} style={{ flex: 1 }} />
+                  <Button
+                    variant="primary"
+                    title="Confirm"
+                    onPress={onConfirmHostKey}
+                    loading={checking}
+                    disabled={!hostKeyInput.trim()}
+                    style={{ flex: 1 }}
+                  />
+                </View>
+              </>
+            ) : (
+              <>
+                <Text style={styles.sheetTitle}>Change device role</Text>
+                <RoleChoice value={deviceRole} onSelect={onSelectRole} />
+              </>
+            )}
           </Pressable>
         </Pressable>
       </Modal>
@@ -113,4 +178,6 @@ const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center', padding: 24 },
   sheet: { width: '100%', maxWidth: 380, backgroundColor: colors.surface, borderRadius: radius.lg, padding: 18, gap: 14 },
   sheetTitle: { fontFamily: fonts.heading, fontSize: 17, color: colors.text },
+  sheetBody: { fontSize: 12.5, lineHeight: 18, color: 'rgba(233,233,237,0.65)', fontFamily: fonts.body },
+  errorText: { fontSize: 12, color: '#e0705a', fontFamily: fonts.body },
 });

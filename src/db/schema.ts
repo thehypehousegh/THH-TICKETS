@@ -55,6 +55,10 @@ const MIGRATIONS: string[] = [
       value TEXT
     );
   `,
+  // v3 — per-event host code, required to promote a verifier device back to host
+  `
+    ALTER TABLE events ADD COLUMN host_key TEXT NOT NULL DEFAULT '';
+  `,
 ];
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase) {

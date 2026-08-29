@@ -27,6 +27,7 @@ export function buildEventExport(event: EventRecord, batches: BatchRecord[]) {
       salt: event.salt,
       thhFirst: event.thhFirst,
       createdAt: event.createdAt,
+      hostKey: event.hostKey,
     },
     types: event.types.map((t) => ({ id: t.id, label: t.label, code: t.code })),
     batches: batches.map((b) => ({
@@ -72,7 +73,10 @@ export async function pickAndParseEventImport(): Promise<ImportOutcome> {
       return { status: 'invalid', reason: 'This file is not a THH Ticket Codes event export.' };
     }
     const payload: EventImportPayload = {
-      event: parsed.event,
+      event: {
+        ...parsed.event,
+        hostKey: typeof parsed.event.hostKey === 'string' ? parsed.event.hostKey : '',
+      },
       types: Array.isArray(parsed.types) ? parsed.types : [],
       batches: parsed.batches,
     };
