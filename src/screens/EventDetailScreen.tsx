@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { FilePdf } from 'phosphor-react-native';
+import { Export, FilePdf, QrCode } from 'phosphor-react-native';
 import type { RootScreenProps } from '../navigation/types';
 import { Screen } from '../components/Screen';
 import { Button } from '../components/Button';
@@ -8,10 +8,14 @@ import { BackButton } from '../components/BackButton';
 import { Card } from '../components/Card';
 import { Tag } from '../components/Tag';
 import { Divider } from '../components/Divider';
+import { Field } from '../components/Field';
+import { CodeMatchCard } from '../components/CodeMatchCard';
 import { useData } from '../db/DataContext';
 import { useToast } from '../components/Toast';
 import { longWhen } from '../utils/codes';
 import { exportEventTicketsPdf } from '../utils/pdf';
+import { exportEventData } from '../utils/eventTransfer';
+import { findCodeMatches } from '../utils/verify';
 import { colors, fonts } from '../theme/tokens';
 
 type Props = RootScreenProps<'EventDetail'>;
@@ -24,9 +28,12 @@ function summarize(codes: { type: string }[]) {
 
 export function EventDetailScreen({ route, navigation }: Props) {
   const { eventId } = route.params;
-  const { getEvent, batchesForEvent } = useData();
+  const { getEvent, batchesForEvent, setCodeUsed } = useData();
   const { flash } = useToast();
   const [exporting, setExporting] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const [verifyQuery, setVerifyQuery] = useState('');
+  const [busyCodeId, setBusyCodeId] = useState<string | null>(null);
   const event = getEvent(eventId);
 
   if (!event) {
@@ -49,6 +56,29 @@ export function EventDetailScreen({ route, navigation }: Props) {
       flash('Could not export PDF');
     } finally {
       setExporting(false);
+    }
+  };
+
+  const onShareData = async () => {
+    setSharing(true);
+    try {
+      await exportEventData(event, batches);
+    } catch (e) {
+      flash('Could not share event data');
+    } finally {
+      setSharing(false);
+    }
+  };
+
+  const matches = findCodeMatches(batches, verifyQuery).slice(0, 8);
+
+  const onToggleCode = async (codeId: string, used: boolean) => {
+    setBusyCodeId(codeId);
+    try {
+      await setCodeUsed(codeId, used);
+      flash(used ? 'Checked in' : 'Check-in undone');
+    } finally {
+      setBusyCodeId(null);
     }
   };
 
@@ -89,6 +119,54 @@ export function EventDetailScreen({ route, navigation }: Props) {
         onPress={onExport}
         icon={<FilePdf size={17} color={colors.text} />}
       />
+      <Button
+        variant="secondary"
+        size="lg"
+        block
+        title={sharing ? 'Preparing…' : 'Share event to another phone'}
+        loading={sharing}
+        onPress={onShareData}
+        icon={<Export size={17} color={colors.text} />}
+      />
+
+      <Divider />
+
+      <View style={{ gap: 10 }}>
+        <Text style={styles.sectionLabel}>VERIFY AT THE DOOR</Text>
+        <Button
+          variant="primary"
+          size="lg"
+          block
+          title="Scan QR code"
+          onPress={() => navigation.navigate('Scan', { eventId: event.id })}
+          icon={<QrCode size={18} color={colors.accent} />}
+        />
+        <Field
+          label=""
+          placeholder="Or type part of a code to verify…"
+          value={verifyQuery}
+          onChangeText={setVerifyQuery}
+          autoCapitalize="characters"
+          style={{ fontFamily: fonts.mono }}
+        />
+        {verifyQuery.trim() ? (
+          matches.length > 0 ? (
+            <View style={{ gap: 8 }}>
+              {matches.map((m) => (
+                <CodeMatchCard
+                  key={m.code.id}
+                  match={m}
+                  busy={busyCodeId === m.code.id}
+                  onCheckIn={() => onToggleCode(m.code.id, true)}
+                  onUndo={() => onToggleCode(m.code.id, false)}
+                />
+              ))}
+            </View>
+          ) : (
+            <Text style={styles.empty}>No codes match "{verifyQuery.trim()}".</Text>
+          )
+        ) : null}
+      </View>
 
       <Divider />
 

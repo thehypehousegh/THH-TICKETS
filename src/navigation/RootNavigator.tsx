@@ -6,6 +6,7 @@ import { CreateEventScreen } from '../screens/CreateEventScreen';
 import { EventDetailScreen } from '../screens/EventDetailScreen';
 import { GenerateScreen } from '../screens/GenerateScreen';
 import { OutputScreen } from '../screens/OutputScreen';
+import { ScanScreen } from '../screens/ScanScreen';
 import { colors } from '../theme/tokens';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -18,6 +19,7 @@ export function RootNavigator() {
       <Stack.Screen name="EventDetail" component={EventDetailScreen} />
       <Stack.Screen name="Generate" component={GenerateScreen} />
       <Stack.Screen name="Output" component={OutputScreen} />
+      <Stack.Screen name="Scan" component={ScanScreen} options={{ presentation: 'fullScreenModal' }} />
     </Stack.Navigator>
   );
 }

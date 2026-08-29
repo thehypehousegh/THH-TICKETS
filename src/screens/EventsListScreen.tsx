@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { FlatList, StyleSheet, Text, View } from 'react-native';
-import { Plus } from 'phosphor-react-native';
+import { FileArrowDown, Plus } from 'phosphor-react-native';
 import type { TabScreenProps } from '../navigation/types';
 import { Screen } from '../components/Screen';
 import { Button } from '../components/Button';
@@ -8,14 +8,37 @@ import { Card } from '../components/Card';
 import { Tag } from '../components/Tag';
 import { Divider } from '../components/Divider';
 import { useData } from '../db/DataContext';
+import { useToast } from '../components/Toast';
 import { longWhen, BRAND_PREFIX } from '../utils/codes';
+import { pickAndParseEventImport } from '../utils/eventTransfer';
 import { colors, fonts } from '../theme/tokens';
 import type { EventRecord } from '../db/types';
 
 type Props = TabScreenProps<'Events'>;
 
 export function EventsListScreen({ navigation }: Props) {
-  const { events, batchesForEvent } = useData();
+  const { events, batchesForEvent, importEventData } = useData();
+  const { flash } = useToast();
+  const [importing, setImporting] = useState(false);
+
+  const onImport = async () => {
+    setImporting(true);
+    try {
+      const outcome = await pickAndParseEventImport();
+      if (outcome.status === 'canceled') return;
+      if (outcome.status === 'invalid') {
+        flash(outcome.reason);
+        return;
+      }
+      const eventId = await importEventData(outcome.payload);
+      flash(`Imported ${outcome.payload.event.name}`);
+      navigation.navigate('EventDetail', { eventId });
+    } catch (e) {
+      flash('Could not import that file');
+    } finally {
+      setImporting(false);
+    }
+  };
 
   const renderItem = ({ item }: { item: EventRecord }) => {
     const issued = batchesForEvent(item.id).reduce((n, b) => n + b.codes.length, 0);
@@ -47,12 +70,21 @@ export function EventsListScreen({ navigation }: Props) {
           <Text style={styles.kicker}>THE HYPE HOUSE</Text>
           <Text style={styles.title}>Events</Text>
         </View>
-        <Button
-          variant="primary"
-          title="New"
-          onPress={() => navigation.navigate('CreateEvent')}
-          icon={<Plus size={15} color={colors.accent} />}
-        />
+        <View style={styles.headerActions}>
+          <Button
+            variant="secondary"
+            iconOnly
+            loading={importing}
+            onPress={onImport}
+            icon={<FileArrowDown size={17} color={colors.text} />}
+          />
+          <Button
+            variant="primary"
+            title="New"
+            onPress={() => navigation.navigate('CreateEvent')}
+            icon={<Plus size={15} color={colors.accent} />}
+          />
+        </View>
       </View>
       <Divider />
       <FlatList
@@ -71,6 +103,7 @@ export function EventsListScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   screen: { padding: 20, paddingBottom: 0, gap: 14 },
   header: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
+  headerActions: { flexDirection: 'row', gap: 8 },
   kicker: { fontFamily: fonts.headingSemibold, fontSize: 10, letterSpacing: 2.2, color: colors.accent, marginBottom: 6 },
   title: { fontFamily: fonts.heading, fontSize: 27, color: colors.text },
   list: { gap: 10, paddingBottom: 108, paddingTop: 4 },

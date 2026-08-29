@@ -36,6 +36,11 @@ jobs:
       - name: Generate native Android project
         run: npx expo prebuild --platform android --no-install
 
+      - name: Use a stable debug signing key
+        run: |
+          mkdir -p ~/.android
+          cp .github/keystore/debug.keystore ~/.android/debug.keystore
+
       - name: Ensure gradlew is executable
         run: chmod +x android/gradlew
 

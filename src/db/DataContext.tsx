@@ -1,6 +1,14 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useSQLiteContext } from 'expo-sqlite';
-import { fetchBatches, fetchEvents, insertBatch, insertEvent } from './queries';
+import {
+  fetchBatches,
+  fetchEvents,
+  importEvent,
+  insertBatch,
+  insertEvent,
+  setCodeUsedAsync,
+  type EventImportPayload,
+} from './queries';
 import type { BatchRecord, EventRecord, NewEventInput, TicketSelection } from './types';
 
 interface DataContextValue {
@@ -12,6 +20,8 @@ interface DataContextValue {
   batchesForEvent: (eventId: string) => BatchRecord[];
   createEvent: (input: NewEventInput) => Promise<EventRecord>;
   generateCodes: (eventId: string, person: string, selections: TicketSelection[]) => Promise<BatchRecord>;
+  setCodeUsed: (codeId: string, used: boolean) => Promise<void>;
+  importEventData: (payload: EventImportPayload) => Promise<string>;
   refresh: () => Promise<void>;
 }
 
@@ -60,9 +70,38 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     [db, events, refresh]
   );
 
+  const setCodeUsed = useCallback(
+    async (codeId: string, used: boolean) => {
+      await setCodeUsedAsync(db, codeId, used);
+      await refresh();
+    },
+    [db, refresh]
+  );
+
+  const importEventData = useCallback(
+    async (payload: EventImportPayload) => {
+      await importEvent(db, payload);
+      await refresh();
+      return payload.event.id;
+    },
+    [db, refresh]
+  );
+
   const value = useMemo<DataContextValue>(
-    () => ({ loading, events, batches, getEvent, getBatch, batchesForEvent, createEvent, generateCodes, refresh }),
-    [loading, events, batches, getEvent, getBatch, batchesForEvent, createEvent, generateCodes, refresh]
+    () => ({
+      loading,
+      events,
+      batches,
+      getEvent,
+      getBatch,
+      batchesForEvent,
+      createEvent,
+      generateCodes,
+      setCodeUsed,
+      importEventData,
+      refresh,
+    }),
+    [loading, events, batches, getEvent, getBatch, batchesForEvent, createEvent, generateCodes, setCodeUsed, importEventData, refresh]
   );
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

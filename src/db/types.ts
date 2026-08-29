@@ -22,6 +22,7 @@ export interface CodeRecord {
   id: string;
   code: string;
   type: string;
+  usedAt: string | null;
 }
 
 export interface BatchRecord {

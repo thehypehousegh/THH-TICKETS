@@ -8,6 +8,7 @@ export type RootStackParamList = {
   EventDetail: { eventId: string };
   Generate: { eventId: string };
   Output: { batchId: string };
+  Scan: { eventId: string };
 };
 
 export type TabParamList = {

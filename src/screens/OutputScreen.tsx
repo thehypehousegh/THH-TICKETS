@@ -1,13 +1,14 @@
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
-import { ArrowRight, ClipboardText, Copy } from 'phosphor-react-native';
+import { ArrowRight, ClipboardText, Copy, QrCode } from 'phosphor-react-native';
 import type { RootScreenProps } from '../navigation/types';
 import { Screen } from '../components/Screen';
 import { Button } from '../components/Button';
 import { BackButton } from '../components/BackButton';
 import { Tag } from '../components/Tag';
 import { Divider } from '../components/Divider';
+import { QrModal } from '../components/QrModal';
 import { useData } from '../db/DataContext';
 import { useToast } from '../components/Toast';
 import { reservationMessage, when } from '../utils/codes';
@@ -34,6 +35,7 @@ export function OutputScreen({ route, navigation }: Props) {
   const { flash } = useToast();
   const batch = getBatch(batchId);
   const event = batch ? getEvent(batch.eventId) : undefined;
+  const [qrCodeId, setQrCodeId] = useState<string | null>(null);
 
   if (!batch || !event) {
     return (
@@ -68,9 +70,17 @@ export function OutputScreen({ route, navigation }: Props) {
         <Text style={styles.cardLabel}>{multi ? 'Ticket Reservation Codes:' : 'Ticket Reservation Code:'}</Text>
         <View style={{ gap: 9 }}>
           {batch.codes.map((c, i) => (
-            <View key={c.id + i} style={styles.lineWrap}>
-              <Text style={styles.code}>{c.code}</Text>
-              <Text style={styles.lineMeta}>{multi ? `(${c.type})` : `${batch.person} (${c.type})`}</Text>
+            <View key={c.id + i} style={styles.lineRow}>
+              <View style={styles.lineWrap}>
+                <Text style={styles.code}>{c.code}</Text>
+                <Text style={styles.lineMeta}>
+                  {multi ? `(${c.type})` : `${batch.person} (${c.type})`}
+                  {c.usedAt ? '  ·  checked in' : ''}
+                </Text>
+              </View>
+              <Pressable style={styles.qrBtn} onPress={() => setQrCodeId(c.id)} hitSlop={8}>
+                <QrCode size={20} color={colors.accent} />
+              </Pressable>
             </View>
           ))}
         </View>
@@ -113,6 +123,20 @@ export function OutputScreen({ route, navigation }: Props) {
         <Text style={styles.copyLabel}>WHAT GETS COPIED</Text>
         <Text style={styles.copyText}>{text}</Text>
       </View>
+
+      {(() => {
+        const qrLine = batch.codes.find((c) => c.id === qrCodeId);
+        if (!qrLine) return null;
+        return (
+          <QrModal
+            visible
+            code={qrLine.code}
+            meta={`${qrLine.type} · ${batch.person}`}
+            eventName={event.name}
+            onClose={() => setQrCodeId(null)}
+          />
+        );
+      })()}
     </Screen>
   );
 }
@@ -133,7 +157,9 @@ const styles = StyleSheet.create({
   cardAccentBar: { position: 'absolute', top: 0, left: 0, right: 0, height: 2, backgroundColor: colors.accent },
   eventName: { fontFamily: fonts.heading, fontSize: 17, color: colors.text, textTransform: 'uppercase' },
   cardLabel: { fontSize: 12.5, color: 'rgba(233,233,237,0.62)', fontFamily: fonts.body },
-  lineWrap: { gap: 2, paddingLeft: 10, borderLeftWidth: 2, borderLeftColor: 'rgba(145,132,217,0.6)' },
+  lineRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  lineWrap: { flex: 1, gap: 2, paddingLeft: 10, borderLeftWidth: 2, borderLeftColor: 'rgba(145,132,217,0.6)' },
+  qrBtn: { padding: 4 },
   code: { fontFamily: fonts.monoMedium, fontSize: 14, color: colors.text },
   lineMeta: { fontSize: 12, color: 'rgba(233,233,237,0.66)', fontFamily: fonts.body },
   forLine: { fontSize: 13, color: colors.text, fontFamily: fonts.body },

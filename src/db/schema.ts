@@ -44,7 +44,8 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
       batch_id TEXT NOT NULL REFERENCES batches(id) ON DELETE CASCADE,
       code TEXT NOT NULL,
       type_label TEXT NOT NULL,
-      sort_order INTEGER NOT NULL DEFAULT 0
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      used_at TEXT DEFAULT NULL
     );
 
     CREATE INDEX IF NOT EXISTS idx_ticket_types_event ON ticket_types(event_id);
