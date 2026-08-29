@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { Export, FilePdf, QrCode } from 'phosphor-react-native';
+import { Alert, StyleSheet, Text, View } from 'react-native';
+import { DownloadSimple, Export, FilePdf, QrCode, Trash } from 'phosphor-react-native';
 import type { RootScreenProps } from '../navigation/types';
 import { Screen } from '../components/Screen';
 import { Button } from '../components/Button';
@@ -14,7 +14,7 @@ import { useData } from '../db/DataContext';
 import { useToast } from '../components/Toast';
 import { longWhen } from '../utils/codes';
 import { exportEventTicketsPdf } from '../utils/pdf';
-import { exportEventData } from '../utils/eventTransfer';
+import { exportEventData, saveEventDataToDevice } from '../utils/eventTransfer';
 import { findCodeMatches } from '../utils/verify';
 import { useScreenCaptureGuard } from '../utils/screenCaptureGuard';
 import { colors, fonts } from '../theme/tokens';
@@ -29,11 +29,13 @@ function summarize(codes: { type: string }[]) {
 
 export function EventDetailScreen({ route, navigation }: Props) {
   const { eventId } = route.params;
-  const { getEvent, batchesForEvent, setCodeUsed, deviceRole } = useData();
+  const { getEvent, batchesForEvent, setCodeUsed, deviceRole, deleteEventData } = useData();
   const isHost = deviceRole === 'host';
   const { flash } = useToast();
   const [exporting, setExporting] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const [savingToDevice, setSavingToDevice] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [verifyQuery, setVerifyQuery] = useState('');
   const [busyCodeId, setBusyCodeId] = useState<string | null>(null);
   const event = getEvent(eventId);
@@ -72,6 +74,42 @@ export function EventDetailScreen({ route, navigation }: Props) {
     } finally {
       setSharing(false);
     }
+  };
+
+  const onSaveToDevice = async () => {
+    setSavingToDevice(true);
+    try {
+      const outcome = await saveEventDataToDevice(event, batches);
+      if (outcome === 'saved') flash('Event data saved');
+      else if (outcome === 'failed') flash('Could not save event data');
+    } finally {
+      setSavingToDevice(false);
+    }
+  };
+
+  const onDelete = () => {
+    Alert.alert(
+      'Delete this event?',
+      `This permanently removes "${event.name}" and all ${issued} code${issued === 1 ? '' : 's'} on this device. Export event data first if you want to keep a backup — you can re-import it later.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await deleteEventData(event.id);
+              navigation.goBack();
+            } catch {
+              flash('Could not delete event');
+            } finally {
+              setDeleting(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const matches = findCodeMatches(batches, verifyQuery).slice(0, 8);
@@ -134,15 +172,25 @@ export function EventDetailScreen({ route, navigation }: Props) {
           />
         </>
       ) : null}
-      <Button
-        variant="secondary"
-        size="lg"
-        block
-        title={sharing ? 'Preparing…' : 'Export event data'}
-        loading={sharing}
-        onPress={onShareData}
-        icon={<Export size={17} color={colors.text} />}
-      />
+      <View style={styles.actionsRow}>
+        <Button
+          variant="secondary"
+          size="lg"
+          title={sharing ? 'Preparing…' : 'Share event data'}
+          loading={sharing}
+          onPress={onShareData}
+          icon={<Export size={17} color={colors.text} />}
+          style={{ flex: 1 }}
+        />
+        <Button
+          variant="secondary"
+          size="lg"
+          iconOnly
+          loading={savingToDevice}
+          onPress={onSaveToDevice}
+          icon={<DownloadSimple size={17} color={colors.text} />}
+        />
+      </View>
 
       <Divider />
 
@@ -205,6 +253,20 @@ export function EventDetailScreen({ route, navigation }: Props) {
         ))}
         {batches.length === 0 ? <Text style={styles.empty}>No codes issued yet for this event.</Text> : null}
       </View>
+
+      {isHost ? (
+        <>
+          <Divider />
+          <Button
+            variant="danger"
+            title={deleting ? 'Deleting…' : 'Delete event'}
+            loading={deleting}
+            onPress={onDelete}
+            icon={<Trash size={16} color="#e0705a" />}
+            style={{ alignSelf: 'flex-start' }}
+          />
+        </>
+      ) : null}
     </Screen>
   );
 }
@@ -223,6 +285,7 @@ const styles = StyleSheet.create({
   meta: { fontSize: 12.5, color: 'rgba(233,233,237,0.62)', fontFamily: fonts.body },
   desc: { fontSize: 12.5, lineHeight: 18, color: 'rgba(233,233,237,0.74)', fontFamily: fonts.body },
   tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
+  actionsRow: { flexDirection: 'row', gap: 10 },
   tagCode: { fontFamily: fonts.mono, color: colors.accent },
   hostKeyNote: { fontSize: 11.5, lineHeight: 16, color: 'rgba(233,233,237,0.45)', fontFamily: fonts.body },
   hostKeyValue: { fontFamily: fonts.monoMedium, color: colors.accent, letterSpacing: 1 },

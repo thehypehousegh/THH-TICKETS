@@ -1,4 +1,4 @@
-import { File, Paths } from 'expo-file-system';
+import { Directory, File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
 import type { EventImportPayload } from '../db/queries';
@@ -9,6 +9,10 @@ const FORMAT_VERSION = 1;
 
 function sanitize(s: string) {
   return s.replace(/[^A-Za-z0-9_-]/g, '-');
+}
+
+function compactTimestamp() {
+  return new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
 }
 
 export function buildEventExport(event: EventRecord, batches: BatchRecord[]) {
@@ -50,6 +54,33 @@ export async function exportEventData(event: EventRecord, batches: BatchRecord[]
   const canShare = await Sharing.isAvailableAsync();
   if (canShare) {
     await Sharing.shareAsync(file.uri, { mimeType: 'application/json', dialogTitle: `${event.name} — event data` });
+  }
+}
+
+export type SaveOutcome = 'saved' | 'canceled' | 'failed';
+
+/**
+ * Lets the user pick an on-device folder (Files/SAF on Android, Files/iCloud
+ * Drive on iOS) and writes the export straight there — no detour through the
+ * share sheet and whatever app happens to handle it.
+ */
+export async function saveEventDataToDevice(event: EventRecord, batches: BatchRecord[]): Promise<SaveOutcome> {
+  let directory: Directory;
+  try {
+    directory = await Directory.pickDirectoryAsync();
+  } catch {
+    return 'canceled';
+  }
+
+  try {
+    const payload = buildEventExport(event, batches);
+    const json = JSON.stringify(payload, null, 2);
+    const name = `${sanitize(event.abbr)}-${sanitize(event.name)}-${compactTimestamp()}.thhticket.json`;
+    const file = directory.createFile(name, 'application/json');
+    file.write(json);
+    return 'saved';
+  } catch {
+    return 'failed';
   }
 }
 

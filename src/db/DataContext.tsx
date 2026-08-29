@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useSQLiteContext } from 'expo-sqlite';
 import {
+  deleteEvent,
   fetchBatches,
   fetchEvents,
   getSetting,
@@ -29,6 +30,7 @@ interface DataContextValue {
   generateCodes: (eventId: string, person: string, selections: TicketSelection[]) => Promise<BatchRecord>;
   setCodeUsed: (codeId: string, used: boolean) => Promise<void>;
   importEventData: (payload: EventImportPayload) => Promise<string>;
+  deleteEventData: (eventId: string) => Promise<void>;
   refresh: () => Promise<void>;
 }
 
@@ -110,6 +112,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     [db, refresh]
   );
 
+  const deleteEventData = useCallback(
+    async (eventId: string) => {
+      await deleteEvent(db, eventId);
+      await refresh();
+    },
+    [db, refresh]
+  );
+
   const value = useMemo<DataContextValue>(
     () => ({
       loading,
@@ -125,6 +135,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       generateCodes,
       setCodeUsed,
       importEventData,
+      deleteEventData,
       refresh,
     }),
     [
@@ -141,6 +152,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       generateCodes,
       setCodeUsed,
       importEventData,
+      deleteEventData,
       refresh,
     ]
   );

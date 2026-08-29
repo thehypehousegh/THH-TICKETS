@@ -1,8 +1,11 @@
 import { type SQLiteDatabase } from 'expo-sqlite';
+import { generateHostKey } from '../utils/codes';
 
 export const DATABASE_NAME = 'thh-tickets.db';
 
-const MIGRATIONS: string[] = [
+type Migration = string | ((db: SQLiteDatabase) => Promise<void>);
+
+const MIGRATIONS: Migration[] = [
   // v1
   `
     PRAGMA journal_mode = WAL;
@@ -59,14 +62,32 @@ const MIGRATIONS: string[] = [
   `
     ALTER TABLE events ADD COLUMN host_key TEXT NOT NULL DEFAULT '';
   `,
+  // v4 — backfill a real host_key for events created before v3 existed, so they
+  // aren't permanently stuck unable to ever promote a verifier device
+  async (db: SQLiteDatabase) => {
+    const rows = await db.getAllAsync<{ id: string }>("SELECT id FROM events WHERE host_key = ''");
+    for (const row of rows) {
+      await db.runAsync('UPDATE events SET host_key = ? WHERE id = ?', [generateHostKey(), row.id]);
+    }
+  },
 ];
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase) {
+  // SQLite enforces foreign keys (and therefore ON DELETE CASCADE) only when a
+  // connection asks for it — it's a per-connection setting, not part of the
+  // database file, so this has to run on every launch, not just once ever.
+  await db.execAsync('PRAGMA foreign_keys = ON;');
+
   const result = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
   const currentVersion = result?.user_version ?? 0;
 
   for (let v = currentVersion; v < MIGRATIONS.length; v++) {
-    await db.execAsync(MIGRATIONS[v]);
+    const migration = MIGRATIONS[v];
+    if (typeof migration === 'string') {
+      await db.execAsync(migration);
+    } else {
+      await migration(db);
+    }
     await db.execAsync(`PRAGMA user_version = ${v + 1}`);
   }
 }

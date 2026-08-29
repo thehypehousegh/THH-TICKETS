@@ -69,10 +69,13 @@ Since there's no server and no live sync between devices, install the app (above
 each phone that will help scan tickets — set it to **Door verifier** — then hand
 each of them the event's data from the **host** phone:
 
-1. On the host phone, open the event and tap **Export event data**. This creates one
-   JSON file with that event's details, ticket types, and every code issued so far,
-   and opens the normal share sheet — AirDrop, Bluetooth, WhatsApp, email, a USB
-   cable, however you'd normally get a file across.
+1. On the host phone, open the event and tap **Share event data** (opens the share
+   sheet — AirDrop, Bluetooth, WhatsApp, email, a USB cable, whatever you'd
+   normally use) or the download icon beside it for **Save to device**, which
+   skips the share sheet entirely and lets you pick a folder (Files/SAF on
+   Android, Files/iCloud Drive on iOS) to write the JSON file straight into.
+   Either way it's the same file: that event's details, ticket types, and every
+   code issued so far.
 2. On each verifier phone, open the app's Events tab and tap the **import** icon
    (next to "New" — verifier phones won't have a "New" button, that's host-only),
    then pick the file you just sent over.
@@ -87,9 +90,9 @@ new.
 Each phone only knows about the check-ins it personally recorded — there's no live
 sync while doors are open. To find out who actually got in overall:
 
-1. On each verifier phone, open the event and tap **Export event data** again (same
-   button as before) — this time it carries that phone's check-in results. Send it
-   back to the host phone.
+1. On each verifier phone, open the event and use **Share event data** or **Save to
+   device** again (same as before) — this time it carries that phone's check-in
+   results. Get that file back to the host phone.
 2. On the host phone, import each file the same way (Events tab → import icon).
    Importing an event you already have **merges** check-ins rather than replacing
    anything: for any code, whichever phone checked it in *first* is what sticks, so
@@ -209,3 +212,16 @@ nothing extra needs installing.
 - Check-in state never syncs between phones live — only when you export from one
   and import into another, which merges (earliest check-in wins) rather than
   overwrites. See "After the event: one combined report" above.
+- **Deleting an event** (host-only, on the event's page) removes it and every
+  ticket type, reservation, and code under it from this device, permanently — the
+  confirmation prompt reminds you to export/save a backup first if you might need
+  it again, since re-importing that file brings it all back. This is the intended
+  way to keep app storage from growing forever: once an event is over and you have
+  its report, delete it here rather than leaving it in the list indefinitely.
+- Two schema fixes worth knowing about if you're digging into `src/db/schema.ts`:
+  `PRAGMA foreign_keys` wasn't being turned on at all (SQLite defaults it off per
+  connection), so the `ON DELETE CASCADE` clauses were silently inert until this
+  was fixed — deleting an event now also explicitly deletes its children directly
+  rather than relying on that alone. And events created before the host-code
+  feature shipped get a real code backfilled automatically on first launch after
+  updating, instead of being stuck unable to ever promote a verifier device.

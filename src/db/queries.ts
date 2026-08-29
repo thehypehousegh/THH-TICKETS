@@ -175,6 +175,18 @@ export async function setCodeUsedAsync(db: SQLiteDatabase, codeId: string, used:
   await db.runAsync('UPDATE codes SET used_at = ? WHERE id = ?', [used ? new Date().toISOString() : null, codeId]);
 }
 
+export async function deleteEvent(db: SQLiteDatabase, eventId: string): Promise<void> {
+  await db.withTransactionAsync(async () => {
+    await db.runAsync(
+      'DELETE FROM codes WHERE batch_id IN (SELECT id FROM batches WHERE event_id = ?)',
+      [eventId]
+    );
+    await db.runAsync('DELETE FROM batches WHERE event_id = ?', [eventId]);
+    await db.runAsync('DELETE FROM ticket_types WHERE event_id = ?', [eventId]);
+    await db.runAsync('DELETE FROM events WHERE id = ?', [eventId]);
+  });
+}
+
 /**
  * A verifier device proves it has real authorization to become host by
  * producing the host code of any event it already knows about — this device

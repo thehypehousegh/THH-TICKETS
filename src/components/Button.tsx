@@ -2,7 +2,7 @@ import React from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { colors, fonts, radius } from '../theme/tokens';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost';
+export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 
 interface ButtonProps {
   title?: string;
@@ -47,7 +47,7 @@ export function Button({
       ]}
     >
       {loading ? (
-        <ActivityIndicator size="small" color={variant === 'secondary' ? colors.text : colors.accent} />
+        <ActivityIndicator size="small" color={variant === 'secondary' ? colors.text : variant === 'danger' ? dangerColor : colors.accent} />
       ) : (
         <View style={styles.content}>
           {icon}
@@ -78,14 +78,18 @@ const styles = StyleSheet.create({
   disabled: { opacity: 0.45 },
 });
 
+const dangerColor = '#e0705a';
+
 const variantStyles = StyleSheet.create({
   primary: { borderColor: colors.accent, backgroundColor: 'transparent' },
   secondary: { borderColor: colors.divider, backgroundColor: 'transparent' },
   ghost: { borderColor: 'transparent', backgroundColor: 'transparent' },
+  danger: { borderColor: dangerColor, backgroundColor: 'transparent' },
 });
 
 const variantTextStyles = StyleSheet.create({
   primary: { color: colors.accent },
   secondary: { color: colors.text },
   ghost: { color: colors.accent },
+  danger: { color: dangerColor },
 });
