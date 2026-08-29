@@ -36,20 +36,18 @@ jobs:
       - name: Generate native Android project
         run: npx expo prebuild --platform android --no-install
 
-      - name: Use a stable debug signing key
-        run: |
-          mkdir -p ~/.android
-          cp .github/keystore/debug.keystore ~/.android/debug.keystore
+      - name: Use a stable signing key
+        run: cp .github/keystore/debug.keystore android/app/debug.keystore
 
       - name: Ensure gradlew is executable
         run: chmod +x android/gradlew
 
-      - name: Build debug APK
+      - name: Build release APK
         working-directory: android
-        run: ./gradlew assembleDebug --no-daemon
+        run: ./gradlew assembleRelease --no-daemon
 
       - name: Stage APK
-        run: cp android/app/build/outputs/apk/debug/app-debug.apk THH-Ticket-Codes.apk
+        run: cp android/app/build/outputs/apk/release/app-release.apk THH-Ticket-Codes.apk
 
       - name: Publish "latest" release with the APK
         uses: ncipollo/release-action@v1
@@ -63,7 +61,8 @@ jobs:
             `THH-Ticket-Codes.apk` below, open the downloaded file, and allow installing from
             this source when prompted (Android will offer to let you do this the first time).
 
-            This is a debug build meant for direct install/testing — not a Play Store release,
+            This build has the JS bundle embedded (it runs standalone, no computer needed)
+            and is signed with a fixed key committed in this repo — not a Play Store release,
             so Android will warn that it's from an unrecognized developer. That's expected.
           artifacts: THH-Ticket-Codes.apk
           allowUpdates: true

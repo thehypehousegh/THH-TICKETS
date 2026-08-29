@@ -61,6 +61,13 @@ is a reasonable trade for not needing a server; if double-scanning becomes a rea
 problem, splitting ticket types across phones (one phone handles Regular, another
 handles VIP) sidesteps it entirely.
 
+## Permissions
+
+Android and iOS only allow asking for camera/photos access at runtime, never during
+installation — so the first time you open the app, it asks once, explains why
+(scanning tickets, saving/sharing QR codes), and gets out of the way. Every launch
+after that skips straight to the Events list.
+
 ## Verifying tickets at the door
 
 On an event's page, under **Verify at the door**:
@@ -132,9 +139,11 @@ nothing extra needs installing.
   are constants in `src/utils/codes.ts`, matching the prototype's defaults. There's
   no in-app settings screen for them yet — say the word if you want one.
 - No sample/demo data is seeded; the app starts empty.
-- The Android build is a **debug** APK (signed with the debug key above), meant for
-  direct install/testing. If you want it on the Play Store eventually, that needs a
-  proper release signing key and a Play Console account — a different setup from
-  what's here.
+- The Android build is a **release-type** APK (JS bundle embedded, so it runs
+  standalone with no computer nearby) signed with the fixed key above rather than a
+  real Play Store release key — that's what makes it directly installable without a
+  Play Console account. Publishing to the Play Store for real needs a proper release
+  signing key and Play Console account — a different setup from what's here; ask if
+  you want that.
 - Check-in state never syncs between phones automatically — see "Getting other
   phones ready for door duty" above.
