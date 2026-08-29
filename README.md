@@ -121,6 +121,36 @@ team that's talking to each other, this is a reasonable trade for not needing a
 server; if double-scanning is a real worry, splitting ticket types across phones
 (one phone handles Regular, another handles VIP) sidesteps it entirely.
 
+## Uninstalling, and keeping your data across it
+
+Neither Android nor iOS lets any app hook into or customize its own uninstall
+confirmation — "keep data?" isn't a prompt this app (or any third-party app) is able
+to add, so there's no in-app setting that changes what happens when you uninstall.
+What actually happens depends on your phone:
+
+- **Android** may offer to restore an app's data automatically after you reinstall
+  it, via its own account-based backup — this is an OS/Google-account setting,
+  not something this app controls, and isn't guaranteed.
+- **iOS** has "Offload App" (Settings → General → iPhone Storage) — it removes the
+  app but keeps its data, and reinstalling restores it automatically. A plain
+  uninstall does not do this, and there's no way for the app to change that.
+
+Since none of that is reliable or guaranteed, the app has its own fully-controlled
+equivalent: on the **Reservations** tab, tap **Manage** next to "Back up or restore
+all data" for:
+
+- **Share backup file** / **Save backup to device** — bundles every event this
+  phone knows about, every code, and this device's role + recovery key into one
+  JSON file, the same way per-event export works (share sheet, or save straight to
+  a folder you pick).
+- **Restore from a backup file** — reads that file back in. Existing events merge
+  (same earliest-check-in-wins rule as regular import) rather than getting wiped,
+  and this device's role and recovery key are set to match the backup — so restoring
+  right after a fresh install brings a phone back to exactly how it was before.
+
+Back up before uninstalling (or periodically, e.g. after each event) if you want a
+guaranteed way back, rather than hoping the OS's own backup behavior covers it.
+
 ## Permissions
 
 Android and iOS only allow asking for camera/photos access at runtime, never during
@@ -189,7 +219,8 @@ nothing extra needs installing.
   Output (reservation message + per-code QR), Scan (camera check-in), Reservations log.
 - `src/utils/pdf.ts` — builds the per-event tickets PDF and shares it.
 - `src/utils/eventTransfer.ts` — builds/reads the per-event export file used to get
-  another phone's local database in sync before an event.
+  another phone's local database in sync before an event, plus the whole-device
+  backup/restore file (every event + device role/recovery key in one JSON file).
 - `src/utils/verify.ts` — code lookup used by both the scan screen and the "type
   part of a code" search on the event page.
 - `src/db/role.ts`, `src/components/RoleGate.tsx`, `src/components/RoleChoice.tsx` —

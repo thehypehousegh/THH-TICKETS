@@ -7,6 +7,9 @@ import type { BatchRecord, EventRecord } from '../db/types';
 const FORMAT = 'thh-ticket-export';
 const FORMAT_VERSION = 1;
 
+const BACKUP_FORMAT = 'thh-ticket-full-backup';
+const BACKUP_FORMAT_VERSION = 1;
+
 function sanitize(s: string) {
   return s.replace(/[^A-Za-z0-9_-]/g, '-');
 }
@@ -82,6 +85,112 @@ export async function saveEventDataToDevice(event: EventRecord, batches: BatchRe
     return 'saved';
   } catch {
     return 'failed';
+  }
+}
+
+export interface FullBackupPayload {
+  format: typeof BACKUP_FORMAT;
+  version: number;
+  exportedAt: string;
+  deviceRole: string | null;
+  hostMasterKey: string | null;
+  events: ReturnType<typeof buildEventExport>[];
+}
+
+/**
+ * Everything this device has, in one file — every event this phone knows
+ * about (created or imported) plus its own role and recovery key. Meant as
+ * the reliable, app-controlled equivalent of "uninstall keeps my data": no
+ * app can hook the OS uninstall dialog, so back up and restore explicitly
+ * instead of hoping the platform's own backup feature covers it.
+ */
+export function buildFullBackup(
+  events: EventRecord[],
+  batchesForEvent: (eventId: string) => BatchRecord[],
+  deviceRole: string | null,
+  hostMasterKey: string | null
+): FullBackupPayload {
+  return {
+    format: BACKUP_FORMAT,
+    version: BACKUP_FORMAT_VERSION,
+    exportedAt: new Date().toISOString(),
+    deviceRole,
+    hostMasterKey,
+    events: events.map((e) => buildEventExport(e, batchesForEvent(e.id))),
+  };
+}
+
+export async function exportFullBackup(payload: FullBackupPayload): Promise<void> {
+  const json = JSON.stringify(payload, null, 2);
+  const file = new File(Paths.cache, `thh-tickets-backup-${compactTimestamp()}.json`);
+  if (file.exists) file.delete();
+  file.create();
+  file.write(json);
+
+  const canShare = await Sharing.isAvailableAsync();
+  if (canShare) {
+    await Sharing.shareAsync(file.uri, { mimeType: 'application/json', dialogTitle: 'THH Ticket Codes — full backup' });
+  }
+}
+
+export async function saveFullBackupToDevice(payload: FullBackupPayload): Promise<SaveOutcome> {
+  let directory: Directory;
+  try {
+    directory = await Directory.pickDirectoryAsync();
+  } catch {
+    return 'canceled';
+  }
+
+  try {
+    const json = JSON.stringify(payload, null, 2);
+    const name = `thh-tickets-backup-${compactTimestamp()}.json`;
+    const file = directory.createFile(name, 'application/json');
+    file.write(json);
+    return 'saved';
+  } catch {
+    return 'failed';
+  }
+}
+
+export type FullBackupImportOutcome =
+  | { status: 'imported'; payload: FullBackupPayload }
+  | { status: 'canceled' }
+  | { status: 'invalid'; reason: string };
+
+export async function pickAndParseFullBackupImport(): Promise<FullBackupImportOutcome> {
+  const result = await DocumentPicker.getDocumentAsync({
+    type: ['application/json', '*/*'],
+    copyToCacheDirectory: true,
+  });
+  if (result.canceled || !result.assets?.[0]) return { status: 'canceled' };
+
+  try {
+    const file = new File(result.assets[0].uri);
+    const text = await file.text();
+    const parsed = JSON.parse(text);
+    if (parsed?.format !== BACKUP_FORMAT || !Array.isArray(parsed.events)) {
+      return { status: 'invalid', reason: 'This file is not a THH Ticket Codes full backup.' };
+    }
+    const payload: FullBackupPayload = {
+      format: BACKUP_FORMAT,
+      version: parsed.version ?? 1,
+      exportedAt: parsed.exportedAt ?? '',
+      deviceRole: parsed.deviceRole ?? null,
+      hostMasterKey: parsed.hostMasterKey ?? null,
+      events: parsed.events.map((e: any) => ({
+        ...e,
+        event: {
+          ...e.event,
+          hostKey: typeof e.event?.hostKey === 'string' ? e.event.hostKey : '',
+          hostMasterKey: typeof e.event?.hostMasterKey === 'string' ? e.event.hostMasterKey : '',
+        },
+        types: Array.isArray(e.types) ? e.types : [],
+        batches: Array.isArray(e.batches) ? e.batches : [],
+      })),
+    };
+    return { status: 'imported', payload };
+  } catch (e) {
+    return { status: 'invalid', reason: 'Could not read that file.' };
   }
 }
 

@@ -17,6 +17,7 @@ import {
 } from './queries';
 import { DEVICE_ROLE_SETTING_KEY, HOST_MASTER_KEY_SETTING_KEY, isDeviceRole, type DeviceRole } from './role';
 import type { BatchRecord, EventRecord, NewEventInput, TicketSelection } from './types';
+import type { FullBackupPayload } from '../utils/eventTransfer';
 
 interface DataContextValue {
   loading: boolean;
@@ -35,6 +36,7 @@ interface DataContextValue {
   deleteCodeData: (codeId: string) => Promise<void>;
   importEventData: (payload: EventImportPayload) => Promise<string>;
   deleteEventData: (eventId: string) => Promise<void>;
+  restoreFullBackup: (payload: FullBackupPayload) => Promise<number>;
   refresh: () => Promise<void>;
 }
 
@@ -139,6 +141,23 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     [db, refresh]
   );
 
+  const restoreFullBackup = useCallback(
+    async (payload: FullBackupPayload) => {
+      for (const eventPayload of payload.events) {
+        await importEvent(db, eventPayload as unknown as EventImportPayload);
+      }
+      if (isDeviceRole(payload.deviceRole)) {
+        await setSetting(db, DEVICE_ROLE_SETTING_KEY, payload.deviceRole);
+      }
+      if (payload.hostMasterKey) {
+        await setSetting(db, HOST_MASTER_KEY_SETTING_KEY, payload.hostMasterKey);
+      }
+      await refresh();
+      return payload.events.length;
+    },
+    [db, refresh]
+  );
+
   const value = useMemo<DataContextValue>(
     () => ({
       loading,
@@ -157,6 +176,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       deleteCodeData,
       importEventData,
       deleteEventData,
+      restoreFullBackup,
       refresh,
     }),
     [
@@ -176,6 +196,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       deleteCodeData,
       importEventData,
       deleteEventData,
+      restoreFullBackup,
       refresh,
     ]
   );

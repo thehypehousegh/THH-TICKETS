@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { Eye, EyeSlash } from 'phosphor-react-native';
 import type { TabScreenProps } from '../navigation/types';
@@ -10,6 +10,13 @@ import { RoleChoice } from '../components/RoleChoice';
 import { Field } from '../components/Field';
 import { Button } from '../components/Button';
 import { useData } from '../db/DataContext';
+import {
+  buildFullBackup,
+  exportFullBackup,
+  pickAndParseFullBackupImport,
+  saveFullBackupToDevice,
+} from '../utils/eventTransfer';
+import { useToast } from '../components/Toast';
 import { colors, fonts, radius } from '../theme/tokens';
 import type { BatchRecord } from '../db/types';
 import type { DeviceRole } from '../db/role';
@@ -38,7 +45,8 @@ function formatStamp(iso: string) {
 const ROLE_LABEL: Record<DeviceRole, string> = { host: 'Main host', verifier: 'Door verifier' };
 
 export function ReservationsListScreen({ navigation }: Props) {
-  const { batches, getEvent, deviceRole, setDeviceRole, checkHostKey, hostMasterKey } = useData();
+  const { events, batches, batchesForEvent, getEvent, deviceRole, setDeviceRole, checkHostKey, hostMasterKey, restoreFullBackup } = useData();
+  const { flash } = useToast();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pendingHostSwitch, setPendingHostSwitch] = useState(false);
   const [hostKeyInput, setHostKeyInput] = useState('');
@@ -46,12 +54,70 @@ export function ReservationsListScreen({ navigation }: Props) {
   const [checking, setChecking] = useState(false);
   const [masterKeyVisible, setMasterKeyVisible] = useState(false);
   const [masterKeyCopied, setMasterKeyCopied] = useState(false);
+  const [backupSheetOpen, setBackupSheetOpen] = useState(false);
+  const [backupBusy, setBackupBusy] = useState<'share' | 'save' | 'restore' | null>(null);
 
   const copyMasterKey = async () => {
     if (!hostMasterKey) return;
     await Clipboard.setStringAsync(hostMasterKey);
     setMasterKeyCopied(true);
     setTimeout(() => setMasterKeyCopied(false), 1500);
+  };
+
+  const onShareBackup = async () => {
+    setBackupBusy('share');
+    try {
+      const payload = buildFullBackup(events, batchesForEvent, deviceRole, hostMasterKey);
+      await exportFullBackup(payload);
+    } catch {
+      flash('Could not share backup');
+    } finally {
+      setBackupBusy(null);
+    }
+  };
+
+  const onSaveBackup = async () => {
+    setBackupBusy('save');
+    try {
+      const payload = buildFullBackup(events, batchesForEvent, deviceRole, hostMasterKey);
+      const outcome = await saveFullBackupToDevice(payload);
+      if (outcome === 'saved') flash('Backup saved');
+      else if (outcome === 'failed') flash('Could not save backup');
+    } finally {
+      setBackupBusy(null);
+    }
+  };
+
+  const onRestoreBackup = async () => {
+    const outcome = await pickAndParseFullBackupImport();
+    if (outcome.status === 'canceled') return;
+    if (outcome.status === 'invalid') {
+      flash(outcome.reason);
+      return;
+    }
+    const { payload } = outcome;
+    Alert.alert(
+      'Restore this backup?',
+      `This brings in ${payload.events.length} event${payload.events.length === 1 ? '' : 's'} from ${payload.exportedAt ? new Date(payload.exportedAt).toLocaleString() : 'the backup file'}. Existing events on this device are merged (check-ins keep whichever happened first), nothing is erased, and this device's role/recovery key will be set to match the backup.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Restore',
+          onPress: async () => {
+            setBackupBusy('restore');
+            try {
+              const count = await restoreFullBackup(payload);
+              flash(`Restored ${count} event${count === 1 ? '' : 's'}`);
+              setBackupSheetOpen(false);
+            } catch {
+              flash('Could not restore backup');
+            } finally {
+              setBackupBusy(null);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const closePicker = () => {
@@ -114,33 +180,40 @@ export function ReservationsListScreen({ navigation }: Props) {
         ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
         ListEmptyComponent={<Text style={styles.empty}>No reservations yet.</Text>}
       />
-      {deviceRole === 'host' && hostMasterKey ? (
-        <View style={styles.masterKeyRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.masterKeyLabel}>This device's recovery key</Text>
-            <Text style={styles.masterKeyValue}>
-              {masterKeyVisible ? hostMasterKey : '•'.repeat(hostMasterKey.length)}
-            </Text>
+      <View style={styles.footer}>
+        {deviceRole === 'host' && hostMasterKey ? (
+          <View style={styles.masterKeyRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.masterKeyLabel}>This device's recovery key</Text>
+              <Text style={styles.masterKeyValue}>
+                {masterKeyVisible ? hostMasterKey : '•'.repeat(hostMasterKey.length)}
+              </Text>
+            </View>
+            <Pressable onPress={() => setMasterKeyVisible((v) => !v)} hitSlop={10} style={{ padding: 4 }}>
+              {masterKeyVisible ? (
+                <EyeSlash size={17} color="rgba(233,233,237,0.6)" />
+              ) : (
+                <Eye size={17} color="rgba(233,233,237,0.6)" />
+              )}
+            </Pressable>
+            <Pressable onPress={copyMasterKey} hitSlop={10} style={{ padding: 4 }}>
+              <Text style={styles.masterKeyCopy}>{masterKeyCopied ? 'Copied' : 'Copy'}</Text>
+            </Pressable>
           </View>
-          <Pressable onPress={() => setMasterKeyVisible((v) => !v)} hitSlop={10} style={{ padding: 4 }}>
-            {masterKeyVisible ? (
-              <EyeSlash size={17} color="rgba(233,233,237,0.6)" />
-            ) : (
-              <Eye size={17} color="rgba(233,233,237,0.6)" />
-            )}
-          </Pressable>
-          <Pressable onPress={copyMasterKey} hitSlop={10} style={{ padding: 4 }}>
-            <Text style={styles.masterKeyCopy}>{masterKeyCopied ? 'Copied' : 'Copy'}</Text>
-          </Pressable>
-        </View>
-      ) : null}
+        ) : null}
 
-      <Pressable style={styles.roleRow} onPress={() => setPickerOpen(true)}>
-        <Text style={styles.roleText}>
-          Device role: <Text style={styles.roleValue}>{deviceRole ? ROLE_LABEL[deviceRole] : '—'}</Text>
-        </Text>
-        <Text style={styles.roleChange}>Change</Text>
-      </Pressable>
+        <Pressable style={styles.roleRow} onPress={() => setBackupSheetOpen(true)}>
+          <Text style={styles.roleText}>Back up or restore all data on this device</Text>
+          <Text style={styles.roleChange}>Manage</Text>
+        </Pressable>
+
+        <Pressable style={styles.roleRow} onPress={() => setPickerOpen(true)}>
+          <Text style={styles.roleText}>
+            Device role: <Text style={styles.roleValue}>{deviceRole ? ROLE_LABEL[deviceRole] : '—'}</Text>
+          </Text>
+          <Text style={styles.roleChange}>Change</Text>
+        </Pressable>
+      </View>
 
       <Modal visible={pickerOpen} transparent animationType="fade" onRequestClose={closePicker}>
         <Pressable style={styles.backdrop} onPress={closePicker}>
@@ -185,6 +258,48 @@ export function ReservationsListScreen({ navigation }: Props) {
           </Pressable>
         </Pressable>
       </Modal>
+
+      <Modal visible={backupSheetOpen} transparent animationType="fade" onRequestClose={() => setBackupSheetOpen(false)}>
+        <Pressable style={styles.backdrop} onPress={() => setBackupSheetOpen(false)}>
+          <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.sheetTitle}>Back up or restore all data</Text>
+            <Text style={styles.sheetBody}>
+              Uninstalling this app can wipe its data depending on your phone's settings, and
+              there's no way for this app to change that OS-level prompt. This is the reliable
+              alternative: save everything this device knows — every event, every code, its
+              role, and its recovery key — to one file, and bring it all back later with Restore.
+            </Text>
+            <Button
+              variant="secondary"
+              size="lg"
+              block
+              title={backupBusy === 'share' ? 'Preparing…' : 'Share backup file'}
+              loading={backupBusy === 'share'}
+              disabled={!!backupBusy}
+              onPress={onShareBackup}
+            />
+            <Button
+              variant="secondary"
+              size="lg"
+              block
+              title={backupBusy === 'save' ? 'Saving…' : 'Save backup to device'}
+              loading={backupBusy === 'save'}
+              disabled={!!backupBusy}
+              onPress={onSaveBackup}
+            />
+            <Button
+              variant="primary"
+              size="lg"
+              block
+              title={backupBusy === 'restore' ? 'Restoring…' : 'Restore from a backup file'}
+              loading={backupBusy === 'restore'}
+              disabled={!!backupBusy}
+              onPress={onRestoreBackup}
+            />
+            <Button variant="ghost" title="Close" onPress={() => setBackupSheetOpen(false)} />
+          </Pressable>
+        </Pressable>
+      </Modal>
     </Screen>
   );
 }
@@ -200,8 +315,11 @@ const styles = StyleSheet.create({
   summary: { fontSize: 11.5, color: 'rgba(233,233,237,0.52)', fontFamily: fonts.body },
   firstCode: { fontFamily: fonts.mono, fontSize: 10.5, color: colors.accent2 },
   empty: { fontSize: 13, color: 'rgba(233,233,237,0.5)', fontFamily: fonts.body, paddingTop: 24, textAlign: 'center' },
+  footer: {
+    position: 'absolute', left: 20, right: 20, bottom: 20,
+    gap: 2,
+  },
   roleRow: {
-    position: 'absolute', left: 20, right: 20, bottom: 96,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingVertical: 10, paddingHorizontal: 4,
   },
@@ -209,9 +327,9 @@ const styles = StyleSheet.create({
   roleValue: { color: 'rgba(233,233,237,0.75)', fontFamily: fonts.bodyMedium },
   roleChange: { fontSize: 11.5, color: colors.accent, fontFamily: fonts.bodyMedium },
   masterKeyRow: {
-    position: 'absolute', left: 20, right: 20, bottom: 138,
     flexDirection: 'row', alignItems: 'center', gap: 10,
     paddingVertical: 8, paddingHorizontal: 10,
+    marginBottom: 4,
     backgroundColor: 'rgba(233,233,237,0.05)', borderRadius: radius.md,
   },
   masterKeyLabel: { fontSize: 10, color: 'rgba(233,233,237,0.45)', fontFamily: fonts.body },
