@@ -3,18 +3,23 @@ import { useSQLiteContext } from 'expo-sqlite';
 import {
   fetchBatches,
   fetchEvents,
+  getSetting,
   importEvent,
   insertBatch,
   insertEvent,
   setCodeUsedAsync,
+  setSetting,
   type EventImportPayload,
 } from './queries';
+import { DEVICE_ROLE_SETTING_KEY, isDeviceRole, type DeviceRole } from './role';
 import type { BatchRecord, EventRecord, NewEventInput, TicketSelection } from './types';
 
 interface DataContextValue {
   loading: boolean;
   events: EventRecord[];
   batches: BatchRecord[];
+  deviceRole: DeviceRole | null;
+  setDeviceRole: (role: DeviceRole) => Promise<void>;
   getEvent: (id: string) => EventRecord | undefined;
   getBatch: (id: string) => BatchRecord | undefined;
   batchesForEvent: (eventId: string) => BatchRecord[];
@@ -31,12 +36,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const db = useSQLiteContext();
   const [events, setEvents] = useState<EventRecord[]>([]);
   const [batches, setBatches] = useState<BatchRecord[]>([]);
+  const [deviceRole, setDeviceRoleState] = useState<DeviceRole | null>(null);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
-    const [nextEvents, nextBatches] = await Promise.all([fetchEvents(db), fetchBatches(db)]);
+    const [nextEvents, nextBatches, roleSetting] = await Promise.all([
+      fetchEvents(db),
+      fetchBatches(db),
+      getSetting(db, DEVICE_ROLE_SETTING_KEY),
+    ]);
     setEvents(nextEvents);
     setBatches(nextBatches);
+    setDeviceRoleState(isDeviceRole(roleSetting) ? roleSetting : null);
   }, [db]);
 
   useEffect(() => {
@@ -48,6 +59,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const batchesForEvent = useCallback(
     (eventId: string) => batches.filter((b) => b.eventId === eventId),
     [batches]
+  );
+
+  const setDeviceRole = useCallback(
+    async (role: DeviceRole) => {
+      await setSetting(db, DEVICE_ROLE_SETTING_KEY, role);
+      setDeviceRoleState(role);
+    },
+    [db]
   );
 
   const createEvent = useCallback(
@@ -92,6 +111,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       loading,
       events,
       batches,
+      deviceRole,
+      setDeviceRole,
       getEvent,
       getBatch,
       batchesForEvent,
@@ -101,7 +122,21 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       importEventData,
       refresh,
     }),
-    [loading, events, batches, getEvent, getBatch, batchesForEvent, createEvent, generateCodes, setCodeUsed, importEventData, refresh]
+    [
+      loading,
+      events,
+      batches,
+      deviceRole,
+      setDeviceRole,
+      getEvent,
+      getBatch,
+      batchesForEvent,
+      createEvent,
+      generateCodes,
+      setCodeUsed,
+      importEventData,
+      refresh,
+    ]
   );
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

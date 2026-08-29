@@ -37,18 +37,32 @@ that, the closest thing to "install and run it" is:
 If you later get an Apple Developer account, this project can be built for TestFlight
 with no code changes — just ask.
 
+## Device roles: host vs. verifier
+
+It's one app either way — the same download works for every phone. The first time
+it opens, it asks what this phone is:
+
+- **Main host** — the only role that can create events, generate ticket codes, and
+  produce the final PDF report. Can also scan/verify, same as a verifier phone.
+- **Door verifier** — imports an event from the host, then scans or types codes to
+  check people in. No "New event" or "Generate codes" — just verification.
+
+You can change a phone's role later from the Reservations tab (tap "Change" next to
+"Device role" near the bottom) if you need to repurpose one.
+
 ## Getting other phones ready for door duty
 
 Since there's no server and no live sync between devices, install the app (above) on
-each phone that will help scan tickets, then hand each of them the event's data:
+each phone that will help scan tickets — set it to **Door verifier** — then hand
+each of them the event's data from the **host** phone:
 
-1. On the phone that generated the codes (the main/host phone), open the event and
-   tap **Export event data**. This creates one JSON file with that event's details,
-   ticket types, and every code issued so far, and opens the normal share sheet —
-   AirDrop, Bluetooth, WhatsApp, email, a USB cable, however you'd normally get a
-   file across.
-2. On each other phone, open the app's Events tab and tap the **import** icon (next
-   to "New"), then pick the file you just sent over.
+1. On the host phone, open the event and tap **Export event data**. This creates one
+   JSON file with that event's details, ticket types, and every code issued so far,
+   and opens the normal share sheet — AirDrop, Bluetooth, WhatsApp, email, a USB
+   cable, however you'd normally get a file across.
+2. On each verifier phone, open the app's Events tab and tap the **import** icon
+   (next to "New" — verifier phones won't have a "New" button, that's host-only),
+   then pick the file you just sent over.
 3. Everyone can now scan or verify any of those codes independently, offline.
 
 Any codes generated *after* you shared the file only exist on the host phone until
@@ -83,9 +97,9 @@ server; if double-scanning is a real worry, splitting ticket types across phones
 ## Permissions
 
 Android and iOS only allow asking for camera/photos access at runtime, never during
-installation — so the first time you open the app, it asks once, explains why
-(scanning tickets, saving/sharing QR codes), and gets out of the way. Every launch
-after that skips straight to the Events list.
+installation — so the first time you open the app (right after picking a device
+role), it asks once, explains why (scanning tickets, saving/sharing QR codes), and
+gets out of the way. Every launch after that skips straight to the Events list.
 
 ## Verifying tickets at the door
 
@@ -146,6 +160,9 @@ nothing extra needs installing.
   another phone's local database in sync before an event.
 - `src/utils/verify.ts` — code lookup used by both the scan screen and the "type
   part of a code" search on the event page.
+- `src/db/role.ts`, `src/components/RoleGate.tsx`, `src/components/RoleChoice.tsx` —
+  the host/verifier device role, stored in SQLite (`app_settings` table) and gating
+  which screens/buttons show up.
 - `.github/workflows/android-apk.yml` — builds the Android APK and publishes it to
   the `latest` GitHub Release on every push to `main`.
 - `.github/keystore/debug.keystore` — a fixed debug signing key, committed on

@@ -8,6 +8,15 @@ function earliestNonNull(a: string | null, b: string | null): string | null {
   return new Date(a).getTime() <= new Date(b).getTime() ? a : b;
 }
 
+export async function getSetting(db: SQLiteDatabase, key: string): Promise<string | null> {
+  const row = await db.getFirstAsync<{ value: string | null }>('SELECT value FROM app_settings WHERE key = ?', [key]);
+  return row?.value ?? null;
+}
+
+export async function setSetting(db: SQLiteDatabase, key: string, value: string): Promise<void> {
+  await db.runAsync('INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)', [key, value]);
+}
+
 interface EventRow {
   id: string;
   name: string;

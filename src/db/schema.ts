@@ -2,13 +2,9 @@ import { type SQLiteDatabase } from 'expo-sqlite';
 
 export const DATABASE_NAME = 'thh-tickets.db';
 
-export async function migrateDbIfNeeded(db: SQLiteDatabase) {
-  const result = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
-  let currentVersion = result?.user_version ?? 0;
-
-  if (currentVersion >= 1) return;
-
-  await db.execAsync(`
+const MIGRATIONS: string[] = [
+  // v1
+  `
     PRAGMA journal_mode = WAL;
 
     CREATE TABLE IF NOT EXISTS events (
@@ -51,8 +47,22 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
     CREATE INDEX IF NOT EXISTS idx_ticket_types_event ON ticket_types(event_id);
     CREATE INDEX IF NOT EXISTS idx_batches_event ON batches(event_id);
     CREATE INDEX IF NOT EXISTS idx_codes_batch ON codes(batch_id);
-  `);
+  `,
+  // v2 — device role (host / verifier) and any future one-off local settings
+  `
+    CREATE TABLE IF NOT EXISTS app_settings (
+      key TEXT PRIMARY KEY NOT NULL,
+      value TEXT
+    );
+  `,
+];
 
-  await db.execAsync(`PRAGMA user_version = 1`);
-  currentVersion = 1;
+export async function migrateDbIfNeeded(db: SQLiteDatabase) {
+  const result = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
+  const currentVersion = result?.user_version ?? 0;
+
+  for (let v = currentVersion; v < MIGRATIONS.length; v++) {
+    await db.execAsync(MIGRATIONS[v]);
+    await db.execAsync(`PRAGMA user_version = ${v + 1}`);
+  }
 }

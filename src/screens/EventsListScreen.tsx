@@ -17,7 +17,8 @@ import type { EventRecord } from '../db/types';
 type Props = TabScreenProps<'Events'>;
 
 export function EventsListScreen({ navigation }: Props) {
-  const { events, batchesForEvent, getEvent, importEventData } = useData();
+  const { events, batchesForEvent, getEvent, importEventData, deviceRole } = useData();
+  const isHost = deviceRole === 'host';
   const { flash } = useToast();
   const [importing, setImporting] = useState(false);
 
@@ -79,12 +80,14 @@ export function EventsListScreen({ navigation }: Props) {
             onPress={onImport}
             icon={<FileArrowDown size={17} color={colors.text} />}
           />
-          <Button
-            variant="primary"
-            title="New"
-            onPress={() => navigation.navigate('CreateEvent')}
-            icon={<Plus size={15} color={colors.accent} />}
-          />
+          {isHost ? (
+            <Button
+              variant="primary"
+              title="New"
+              onPress={() => navigation.navigate('CreateEvent')}
+              icon={<Plus size={15} color={colors.accent} />}
+            />
+          ) : null}
         </View>
       </View>
       <Divider />
@@ -94,7 +97,9 @@ export function EventsListScreen({ navigation }: Props) {
         renderItem={renderItem}
         contentContainerStyle={styles.list}
         ListEmptyComponent={
-          <Text style={styles.empty}>No events yet. Tap New to create your first one.</Text>
+          <Text style={styles.empty}>
+            {isHost ? 'No events yet. Tap New to create your first one.' : 'No events yet. Import one from the host phone.'}
+          </Text>
         }
       />
     </Screen>

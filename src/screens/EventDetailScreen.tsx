@@ -28,7 +28,8 @@ function summarize(codes: { type: string }[]) {
 
 export function EventDetailScreen({ route, navigation }: Props) {
   const { eventId } = route.params;
-  const { getEvent, batchesForEvent, setCodeUsed } = useData();
+  const { getEvent, batchesForEvent, setCodeUsed, deviceRole } = useData();
+  const isHost = deviceRole === 'host';
   const { flash } = useToast();
   const [exporting, setExporting] = useState(false);
   const [sharing, setSharing] = useState(false);
@@ -103,22 +104,26 @@ export function EventDetailScreen({ route, navigation }: Props) {
         ))}
       </View>
 
-      <Button
-        variant="primary"
-        size="lg"
-        block
-        title="Generate ticket codes"
-        onPress={() => navigation.navigate('Generate', { eventId: event.id })}
-      />
-      <Button
-        variant="secondary"
-        size="lg"
-        block
-        title={exporting ? 'Preparing PDF…' : 'Export PDF'}
-        loading={exporting}
-        onPress={onExport}
-        icon={<FilePdf size={17} color={colors.text} />}
-      />
+      {isHost ? (
+        <>
+          <Button
+            variant="primary"
+            size="lg"
+            block
+            title="Generate ticket codes"
+            onPress={() => navigation.navigate('Generate', { eventId: event.id })}
+          />
+          <Button
+            variant="secondary"
+            size="lg"
+            block
+            title={exporting ? 'Preparing PDF…' : 'Export PDF'}
+            loading={exporting}
+            onPress={onExport}
+            icon={<FilePdf size={17} color={colors.text} />}
+          />
+        </>
+      ) : null}
       <Button
         variant="secondary"
         size="lg"

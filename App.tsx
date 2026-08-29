@@ -14,6 +14,7 @@ import { DATABASE_NAME, migrateDbIfNeeded } from './src/db/schema';
 import { DataProvider } from './src/db/DataContext';
 import { ToastProvider } from './src/components/Toast';
 import { PermissionsGate } from './src/components/PermissionsGate';
+import { RoleGate } from './src/components/RoleGate';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { colors } from './src/theme/tokens';
 
@@ -47,9 +48,11 @@ export default function App() {
           <ToastProvider>
             <NavigationContainer theme={navTheme}>
               <StatusBar style="light" />
-              <PermissionsGate>
-                <RootNavigator />
-              </PermissionsGate>
+              <RoleGate>
+                <PermissionsGate>
+                  <RootNavigator />
+                </PermissionsGate>
+              </RoleGate>
             </NavigationContainer>
           </ToastProvider>
         </DataProvider>
