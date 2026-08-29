@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import QRCode from 'react-native-qrcode-svg';
-import { ArrowRight, ClipboardText, Copy, DownloadSimple, QrCode as QrCodeIcon } from 'phosphor-react-native';
+import { ArrowRight, ClipboardText, Copy, DownloadSimple, QrCode as QrCodeIcon, ShareNetwork } from 'phosphor-react-native';
 import type { RootScreenProps } from '../navigation/types';
 import { Screen } from '../components/Screen';
 import { Button } from '../components/Button';
@@ -13,7 +13,7 @@ import { QrModal } from '../components/QrModal';
 import { useData } from '../db/DataContext';
 import { useToast } from '../components/Toast';
 import { reservationMessage, when } from '../utils/codes';
-import { saveQrToPhotos } from '../utils/qrExport';
+import { saveQrToPhotos, shareAllQrAsZip } from '../utils/qrExport';
 import { useScreenCaptureGuard } from '../utils/screenCaptureGuard';
 import { colors, fonts } from '../theme/tokens';
 
@@ -43,6 +43,7 @@ export function OutputScreen({ route, navigation }: Props) {
   const event = batch ? getEvent(batch.eventId) : undefined;
   const [qrCodeId, setQrCodeId] = useState<string | null>(null);
   const [savingAll, setSavingAll] = useState(false);
+  const [sharingAll, setSharingAll] = useState(false);
   const qrRefs = useRef<Record<string, QrRef>>({});
 
   useScreenCaptureGuard(!isHost);
@@ -66,19 +67,40 @@ export function OutputScreen({ route, navigation }: Props) {
     flash(label);
   };
 
+  const collectAllQrBase64 = async () => {
+    const out: { code: string; base64: string }[] = [];
+    for (const c of batch.codes) {
+      const ref = qrRefs.current[c.id];
+      if (!ref) continue;
+      const base64 = await new Promise<string>((resolve) => ref.toDataURL((b64) => resolve(b64)));
+      out.push({ code: c.code, base64 });
+    }
+    return out;
+  };
+
   const saveAllQr = async () => {
     setSavingAll(true);
     try {
+      const rendered = await collectAllQrBase64();
       let saved = 0;
-      for (const c of batch.codes) {
-        const ref = qrRefs.current[c.id];
-        if (!ref) continue;
-        const base64 = await new Promise<string>((resolve) => ref.toDataURL((b64) => resolve(b64)));
-        if (await saveQrToPhotos(base64, c.code)) saved++;
+      for (const r of rendered) {
+        if (await saveQrToPhotos(r.base64, r.code)) saved++;
       }
       flash(saved > 0 ? `Saved ${saved} of ${batch.codes.length} QR codes to Photos` : 'Photos permission denied');
     } finally {
       setSavingAll(false);
+    }
+  };
+
+  const shareAllQr = async () => {
+    setSharingAll(true);
+    try {
+      const rendered = await collectAllQrBase64();
+      await shareAllQrAsZip(rendered, `${event.abbr}-${batch.person}-qr-codes`);
+    } catch {
+      flash('Could not share QR codes');
+    } finally {
+      setSharingAll(false);
     }
   };
 
@@ -138,15 +160,25 @@ export function OutputScreen({ route, navigation }: Props) {
       </View>
 
       {multi && isHost ? (
-        <Button
-          variant="secondary"
-          size="lg"
-          block
-          title={savingAll ? 'Saving…' : `Save all ${batch.codes.length} QR codes to Photos`}
-          loading={savingAll}
-          onPress={saveAllQr}
-          icon={<DownloadSimple size={17} color={colors.text} />}
-        />
+        <View style={styles.actionsRow}>
+          <Button
+            variant="secondary"
+            size="lg"
+            title={savingAll ? 'Saving…' : `Save all ${batch.codes.length} QR codes to Photos`}
+            loading={savingAll}
+            onPress={saveAllQr}
+            icon={<DownloadSimple size={17} color={colors.text} />}
+            style={{ flex: 1 }}
+          />
+          <Button
+            variant="secondary"
+            size="lg"
+            iconOnly
+            loading={sharingAll}
+            onPress={shareAllQr}
+            icon={<ShareNetwork size={17} color={colors.text} />}
+          />
+        </View>
       ) : null}
 
       <Button
