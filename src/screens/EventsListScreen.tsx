@@ -17,7 +17,7 @@ import type { EventRecord } from '../db/types';
 type Props = TabScreenProps<'Events'>;
 
 export function EventsListScreen({ navigation }: Props) {
-  const { events, batchesForEvent, importEventData } = useData();
+  const { events, batchesForEvent, getEvent, importEventData } = useData();
   const { flash } = useToast();
   const [importing, setImporting] = useState(false);
 
@@ -30,8 +30,9 @@ export function EventsListScreen({ navigation }: Props) {
         flash(outcome.reason);
         return;
       }
+      const alreadyHadEvent = !!getEvent(outcome.payload.event.id);
       const eventId = await importEventData(outcome.payload);
-      flash(`Imported ${outcome.payload.event.name}`);
+      flash(alreadyHadEvent ? `Merged check-ins into ${outcome.payload.event.name}` : `Imported ${outcome.payload.event.name}`);
       navigation.navigate('EventDetail', { eventId });
     } catch (e) {
       flash('Could not import that file');

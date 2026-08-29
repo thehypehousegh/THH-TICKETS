@@ -2,6 +2,12 @@ import { type SQLiteDatabase } from 'expo-sqlite';
 import { makeCode, salt, uid, SALT_LENGTH } from '../utils/codes';
 import type { BatchRecord, EventRecord, NewEventInput, TicketSelection } from './types';
 
+function earliestNonNull(a: string | null, b: string | null): string | null {
+  if (!a) return b;
+  if (!b) return a;
+  return new Date(a).getTime() <= new Date(b).getTime() ? a : b;
+}
+
 interface EventRow {
   id: string;
   name: string;
@@ -179,9 +185,15 @@ export interface EventImportPayload {
 }
 
 /**
- * Insert-if-new only: an existing event's descriptive fields are refreshed, but
- * any batch/code id already present locally is left completely untouched, so a
- * re-import can never clobber a check-in another phone doesn't know about yet.
+ * Merge semantics that work for both directions this is used in:
+ *  - Handing an event to a fresh device (nothing local yet) — everything is a
+ *    plain insert.
+ *  - Reconciling a verifier phone's results back into a device that already
+ *    has the event — for a code both sides already know about, the earlier of
+ *    the two check-in timestamps wins, so importing never erases a check-in
+ *    recorded elsewhere, and combining several phones' results just works.
+ * An event's own descriptive fields (name/venue/date/...) are always refreshed
+ * to the incoming copy; they don't carry any state worth protecting.
  */
 export async function importEvent(db: SQLiteDatabase, payload: EventImportPayload): Promise<void> {
   const { event, types, batches } = payload;
@@ -226,12 +238,26 @@ export async function importEvent(db: SQLiteDatabase, payload: EventImportPayloa
       }
       for (let i = 0; i < batch.codes.length; i++) {
         const c = batch.codes[i];
-        const existingCode = await db.getFirstAsync<{ id: string }>('SELECT id FROM codes WHERE id = ?', [c.id]);
+        const existingCode = await db.getFirstAsync<{ id: string; used_at: string | null }>(
+          'SELECT id, used_at FROM codes WHERE id = ?',
+          [c.id]
+        );
         if (!existingCode) {
+          // First time this device has seen this code — e.g. the initial hand-off
+          // from the main phone to a door-verifier phone.
           await db.runAsync(
             'INSERT INTO codes (id, batch_id, code, type_label, sort_order, used_at) VALUES (?, ?, ?, ?, ?, ?)',
             [c.id, batch.id, c.code, c.type, i, c.usedAt]
           );
+        } else {
+          // Reconciling a verifier phone's results back into a device that
+          // already had this code — adopt whichever check-in happened first,
+          // so results from multiple door phones combine into one true state
+          // without a scan on one phone ever erasing a scan recorded on another.
+          const merged = earliestNonNull(existingCode.used_at, c.usedAt);
+          if (merged !== existingCode.used_at) {
+            await db.runAsync('UPDATE codes SET used_at = ? WHERE id = ?', [merged, c.id]);
+          }
         }
       }
     }

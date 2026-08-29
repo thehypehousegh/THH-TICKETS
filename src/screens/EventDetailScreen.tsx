@@ -123,7 +123,7 @@ export function EventDetailScreen({ route, navigation }: Props) {
         variant="secondary"
         size="lg"
         block
-        title={sharing ? 'Preparing…' : 'Share event to another phone'}
+        title={sharing ? 'Preparing…' : 'Export event data'}
         loading={sharing}
         onPress={onShareData}
         icon={<Export size={17} color={colors.text} />}

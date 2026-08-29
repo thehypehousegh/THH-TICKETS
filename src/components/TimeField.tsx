@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { colors, fonts, radius } from '../theme/tokens';
 import { Button } from './Button';
@@ -8,8 +8,9 @@ function pad(n: number) {
   return String(n).padStart(2, '0');
 }
 
+const ROW_HEIGHT = 40;
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
-const MINUTES = Array.from({ length: 12 }, (_, i) => i * 5);
+const MINUTES = Array.from({ length: 60 }, (_, i) => i);
 
 interface TimeFieldProps {
   label: string;
@@ -22,17 +23,18 @@ export function TimeField({ label, value, placeholder, onChange }: TimeFieldProp
   const [open, setOpen] = useState(false);
   const [hh, setHh] = useState(0);
   const [mm, setMm] = useState(0);
+  const hourScroll = useRef<ScrollView | null>(null);
+  const minuteScroll = useRef<ScrollView | null>(null);
 
   const openSheet = () => {
-    if (value) {
-      const [h, m] = value.split(':').map(Number);
-      setHh(h);
-      setMm(Math.round(m / 5) * 5 % 60);
-    } else {
-      setHh(0);
-      setMm(0);
-    }
+    const [h, m] = value ? value.split(':').map(Number) : [0, 0];
+    setHh(h);
+    setMm(m);
     setOpen(true);
+    requestAnimationFrame(() => {
+      hourScroll.current?.scrollTo({ y: h * ROW_HEIGHT, animated: false });
+      minuteScroll.current?.scrollTo({ y: m * ROW_HEIGHT, animated: false });
+    });
   };
 
   const display = value
@@ -54,7 +56,7 @@ export function TimeField({ label, value, placeholder, onChange }: TimeFieldProp
           <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
             <Text style={styles.title}>Time</Text>
             <View style={styles.columns}>
-              <ScrollView style={styles.col} showsVerticalScrollIndicator={false}>
+              <ScrollView ref={hourScroll} style={styles.col} showsVerticalScrollIndicator={false}>
                 {HOURS.map((h) => (
                   <Pressable key={h} style={[styles.row, h === hh && styles.rowActive]} onPress={() => setHh(h)}>
                     <Text style={[styles.rowText, h === hh && styles.rowTextActive]}>
@@ -63,7 +65,7 @@ export function TimeField({ label, value, placeholder, onChange }: TimeFieldProp
                   </Pressable>
                 ))}
               </ScrollView>
-              <ScrollView style={styles.col} showsVerticalScrollIndicator={false}>
+              <ScrollView ref={minuteScroll} style={styles.col} showsVerticalScrollIndicator={false}>
                 {MINUTES.map((m) => (
                   <Pressable key={m} style={[styles.row, m === mm && styles.rowActive]} onPress={() => setMm(m)}>
                     <Text style={[styles.rowText, m === mm && styles.rowTextActive]}>:{pad(m)}</Text>
@@ -97,7 +99,7 @@ const styles = StyleSheet.create({
   },
   columns: { flexDirection: 'row', gap: 8, height: 220 },
   col: { flex: 1 },
-  row: { minHeight: 40, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md },
+  row: { height: ROW_HEIGHT, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md },
   rowActive: { backgroundColor: 'rgba(145,132,217,0.15)' },
   rowText: { fontFamily: fonts.mono, fontSize: 15, color: colors.text },
   rowTextActive: { color: colors.accent, fontFamily: fonts.monoMedium },

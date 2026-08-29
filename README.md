@@ -42,24 +42,43 @@ with no code changes — just ask.
 Since there's no server and no live sync between devices, install the app (above) on
 each phone that will help scan tickets, then hand each of them the event's data:
 
-1. On the phone that generated the codes, open the event and tap **Share event to
-   another phone**. This creates one JSON file with that event's details, ticket
-   types, and every code issued so far, and opens the normal share sheet — AirDrop,
-   Bluetooth, WhatsApp, email, a USB cable, however you'd normally get a file across.
+1. On the phone that generated the codes (the main/host phone), open the event and
+   tap **Export event data**. This creates one JSON file with that event's details,
+   ticket types, and every code issued so far, and opens the normal share sheet —
+   AirDrop, Bluetooth, WhatsApp, email, a USB cable, however you'd normally get a
+   file across.
 2. On each other phone, open the app's Events tab and tap the **import** icon (next
    to "New"), then pick the file you just sent over.
 3. Everyone can now scan or verify any of those codes independently, offline.
 
-**The trade-off that comes with staying offline:** each phone's check-ins are
-local to that phone. If Daniel's Regular code gets scanned on two different phones,
-neither one will know the other already checked it in — there's no sync to catch
-that. And any codes generated *after* you shared the file only exist on the
-generating phone until you export and re-share again (re-importing is safe any
-time — it only adds codes it hasn't seen before, and never overwrites a check-in
-already recorded locally). For a small door team that's talking to each other, this
-is a reasonable trade for not needing a server; if double-scanning becomes a real
-problem, splitting ticket types across phones (one phone handles Regular, another
-handles VIP) sidesteps it entirely.
+Any codes generated *after* you shared the file only exist on the host phone until
+you export and re-share again — re-importing is always safe, it just adds whatever's
+new.
+
+## After the event: one combined report
+
+Each phone only knows about the check-ins it personally recorded — there's no live
+sync while doors are open. To find out who actually got in overall:
+
+1. On each verifier phone, open the event and tap **Export event data** again (same
+   button as before) — this time it carries that phone's check-in results. Send it
+   back to the host phone.
+2. On the host phone, import each file the same way (Events tab → import icon).
+   Importing an event you already have **merges** check-ins rather than replacing
+   anything: for any code, whichever phone checked it in *first* is what sticks, so
+   feeding in results from three door phones just combines them, and nothing you
+   already knew gets erased. If Daniel's Regular code was accidentally scanned on
+   two phones, only the earlier of the two timestamps survives — no double-counting.
+3. Tap **Export PDF** on the host phone. The report now shows, per code, whether and
+   when it was checked in, plus a summary line up top: total generated, checked in,
+   and not checked in — the full picture from every phone combined.
+
+**The trade-off that comes with staying offline:** between steps 1 and 3, two
+phones scanning the exact same ticket won't warn each other — there's no live sync
+to catch that in the moment, only the after-the-fact merge above. For a small door
+team that's talking to each other, this is a reasonable trade for not needing a
+server; if double-scanning is a real worry, splitting ticket types across phones
+(one phone handles Regular, another handles VIP) sidesteps it entirely.
 
 ## Permissions
 
@@ -102,8 +121,9 @@ nothing extra needs installing.
 - **expo-sqlite** — an embedded SQLite database on-device (`src/db/schema.ts`,
   `src/db/queries.ts`). All event, ticket-type, reservation-batch and code data lives
   locally, including each code's check-in (`used_at`) state.
-- **expo-print + expo-sharing** — generates a per-event PDF (No. · Name · Code(s)) and
-  hands it to the OS share sheet.
+- **expo-print + expo-sharing** — generates a per-event PDF (No. · Name · Code(s),
+  each with its checked-in status, plus generated/checked-in/not-checked-in totals)
+  and hands it to the OS share sheet.
 - **react-native-qrcode-svg + expo-file-system + expo-media-library** — renders,
   saves, and shares a QR image per code (`src/components/QrModal.tsx`,
   `src/utils/qrExport.ts`).
@@ -145,5 +165,6 @@ nothing extra needs installing.
   Play Console account. Publishing to the Play Store for real needs a proper release
   signing key and Play Console account — a different setup from what's here; ask if
   you want that.
-- Check-in state never syncs between phones automatically — see "Getting other
-  phones ready for door duty" above.
+- Check-in state never syncs between phones live — only when you export from one
+  and import into another, which merges (earliest check-in wins) rather than
+  overwrites. See "After the event: one combined report" above.
