@@ -113,7 +113,9 @@ On an event's page, under **Verify at the door**:
 
 Each generated code also has its own downloadable QR (tap the QR icon next to a
 code on its Output screen) — **Save to Photos** or **Share** it directly, e.g. to
-text or email someone their ticket as an image.
+text or email someone their ticket as an image. When a name has more than one code
+(Daniel's 2 Regular + 3 Double + 1 VIP), a **Save all N QR codes to Photos** button
+saves every one of them in a single tap instead of one at a time.
 
 ## Running it yourself
 

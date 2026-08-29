@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
-import { ArrowRight, ClipboardText, Copy, QrCode } from 'phosphor-react-native';
+import QRCode from 'react-native-qrcode-svg';
+import { ArrowRight, ClipboardText, Copy, DownloadSimple, QrCode as QrCodeIcon } from 'phosphor-react-native';
 import type { RootScreenProps } from '../navigation/types';
 import { Screen } from '../components/Screen';
 import { Button } from '../components/Button';
@@ -12,7 +13,10 @@ import { QrModal } from '../components/QrModal';
 import { useData } from '../db/DataContext';
 import { useToast } from '../components/Toast';
 import { reservationMessage, when } from '../utils/codes';
+import { saveQrToPhotos } from '../utils/qrExport';
 import { colors, fonts } from '../theme/tokens';
+
+type QrRef = { toDataURL: (cb: (base64: string) => void) => void };
 
 type Props = RootScreenProps<'Output'>;
 
@@ -36,6 +40,8 @@ export function OutputScreen({ route, navigation }: Props) {
   const batch = getBatch(batchId);
   const event = batch ? getEvent(batch.eventId) : undefined;
   const [qrCodeId, setQrCodeId] = useState<string | null>(null);
+  const [savingAll, setSavingAll] = useState(false);
+  const qrRefs = useRef<Record<string, QrRef>>({});
 
   if (!batch || !event) {
     return (
@@ -54,6 +60,22 @@ export function OutputScreen({ route, navigation }: Props) {
   const copy = async (value: string, label: string) => {
     await Clipboard.setStringAsync(value);
     flash(label);
+  };
+
+  const saveAllQr = async () => {
+    setSavingAll(true);
+    try {
+      let saved = 0;
+      for (const c of batch.codes) {
+        const ref = qrRefs.current[c.id];
+        if (!ref) continue;
+        const base64 = await new Promise<string>((resolve) => ref.toDataURL((b64) => resolve(b64)));
+        if (await saveQrToPhotos(base64, c.code)) saved++;
+      }
+      flash(saved > 0 ? `Saved ${saved} of ${batch.codes.length} QR codes to Photos` : 'Photos permission denied');
+    } finally {
+      setSavingAll(false);
+    }
   };
 
   return (
@@ -79,7 +101,7 @@ export function OutputScreen({ route, navigation }: Props) {
                 </Text>
               </View>
               <Pressable style={styles.qrBtn} onPress={() => setQrCodeId(c.id)} hitSlop={8}>
-                <QrCode size={20} color={colors.accent} />
+                <QrCodeIcon size={20} color={colors.accent} />
               </Pressable>
             </View>
           ))}
@@ -111,6 +133,18 @@ export function OutputScreen({ route, navigation }: Props) {
         />
       </View>
 
+      {multi ? (
+        <Button
+          variant="secondary"
+          size="lg"
+          block
+          title={savingAll ? 'Saving…' : `Save all ${batch.codes.length} QR codes to Photos`}
+          loading={savingAll}
+          onPress={saveAllQr}
+          icon={<DownloadSimple size={17} color={colors.text} />}
+        />
+      ) : null}
+
       <Button
         variant="ghost"
         title="Generate another"
@@ -123,6 +157,19 @@ export function OutputScreen({ route, navigation }: Props) {
         <Text style={styles.copyLabel}>WHAT GETS COPIED</Text>
         <Text style={styles.copyText}>{text}</Text>
       </View>
+
+      {multi ? (
+        <View style={styles.hiddenQrLayer} pointerEvents="none">
+          {batch.codes.map((c) => (
+            <QRCode
+              key={c.id}
+              value={c.code}
+              size={200}
+              getRef={(ref) => { qrRefs.current[c.id] = ref; }}
+            />
+          ))}
+        </View>
+      ) : null}
 
       {(() => {
         const qrLine = batch.codes.find((c) => c.id === qrCodeId);
@@ -142,6 +189,7 @@ export function OutputScreen({ route, navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
+  hiddenQrLayer: { position: 'absolute', top: -10000, left: -10000 },
   topRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   stamp: { fontSize: 11, color: 'rgba(233,233,237,0.45)', fontFamily: fonts.body },
   card: {
