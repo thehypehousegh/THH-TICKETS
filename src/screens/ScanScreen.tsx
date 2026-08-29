@@ -8,18 +8,21 @@ import { CodeMatchCard } from '../components/CodeMatchCard';
 import { useData } from '../db/DataContext';
 import { useToast } from '../components/Toast';
 import { findCodeExact, type CodeMatch } from '../utils/verify';
+import { useScreenCaptureGuard } from '../utils/screenCaptureGuard';
 import { colors, fonts } from '../theme/tokens';
 
 type Props = RootScreenProps<'Scan'>;
 
 export function ScanScreen({ route, navigation }: Props) {
   const { eventId } = route.params;
-  const { batchesForEvent, setCodeUsed } = useData();
+  const { batchesForEvent, setCodeUsed, deviceRole } = useData();
   const { flash } = useToast();
   const [permission, requestPermission] = useCameraPermissions();
   const [match, setMatch] = useState<CodeMatch | 'not-found' | null>(null);
   const [busy, setBusy] = useState(false);
   const locked = useRef(false);
+
+  useScreenCaptureGuard(deviceRole !== 'host');
 
   const handleScan = ({ data }: { data: string }) => {
     if (locked.current) return;

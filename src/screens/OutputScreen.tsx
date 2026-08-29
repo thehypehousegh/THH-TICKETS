@@ -14,6 +14,7 @@ import { useData } from '../db/DataContext';
 import { useToast } from '../components/Toast';
 import { reservationMessage, when } from '../utils/codes';
 import { saveQrToPhotos } from '../utils/qrExport';
+import { useScreenCaptureGuard } from '../utils/screenCaptureGuard';
 import { colors, fonts } from '../theme/tokens';
 
 type QrRef = { toDataURL: (cb: (base64: string) => void) => void };
@@ -35,13 +36,16 @@ function formatStamp(iso: string) {
 
 export function OutputScreen({ route, navigation }: Props) {
   const { batchId } = route.params;
-  const { getBatch, getEvent } = useData();
+  const { getBatch, getEvent, deviceRole } = useData();
+  const isHost = deviceRole === 'host';
   const { flash } = useToast();
   const batch = getBatch(batchId);
   const event = batch ? getEvent(batch.eventId) : undefined;
   const [qrCodeId, setQrCodeId] = useState<string | null>(null);
   const [savingAll, setSavingAll] = useState(false);
   const qrRefs = useRef<Record<string, QrRef>>({});
+
+  useScreenCaptureGuard(!isHost);
 
   if (!batch || !event) {
     return (
@@ -133,7 +137,7 @@ export function OutputScreen({ route, navigation }: Props) {
         />
       </View>
 
-      {multi ? (
+      {multi && isHost ? (
         <Button
           variant="secondary"
           size="lg"
@@ -158,7 +162,7 @@ export function OutputScreen({ route, navigation }: Props) {
         <Text style={styles.copyText}>{text}</Text>
       </View>
 
-      {multi ? (
+      {multi && isHost ? (
         <View style={styles.hiddenQrLayer} pointerEvents="none">
           {batch.codes.map((c) => (
             <QRCode

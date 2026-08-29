@@ -6,6 +6,8 @@ import { colors, fonts, radius } from '../theme/tokens';
 import { Button } from './Button';
 import { saveQrToPhotos, shareQrPng } from '../utils/qrExport';
 import { useToast } from './Toast';
+import { useData } from '../db/DataContext';
+import { useScreenCaptureGuard } from '../utils/screenCaptureGuard';
 
 interface QrModalProps {
   visible: boolean;
@@ -18,7 +20,11 @@ interface QrModalProps {
 export function QrModal({ visible, code, meta, eventName, onClose }: QrModalProps) {
   const svgRef = useRef<{ toDataURL: (cb: (base64: string) => void) => void } | null>(null);
   const { flash } = useToast();
+  const { deviceRole } = useData();
+  const isHost = deviceRole === 'host';
   const [busy, setBusy] = useState(false);
+
+  useScreenCaptureGuard(visible && !isHost);
 
   const getBase64 = () =>
     new Promise<string>((resolve, reject) => {
@@ -66,23 +72,27 @@ export function QrModal({ visible, code, meta, eventName, onClose }: QrModalProp
           </View>
           <Text style={styles.code}>{code}</Text>
           <Text style={styles.meta}>{meta}</Text>
-          <View style={styles.actions}>
-            <Button
-              variant="primary"
-              title="Save to Photos"
-              onPress={onSave}
-              loading={busy}
-              icon={<DownloadSimple size={16} color={colors.accent} />}
-              style={{ flex: 1 }}
-            />
-            <Button
-              variant="secondary"
-              iconOnly
-              onPress={onShare}
-              loading={busy}
-              icon={<ShareNetwork size={17} color={colors.text} />}
-            />
-          </View>
+          {isHost ? (
+            <View style={styles.actions}>
+              <Button
+                variant="primary"
+                title="Save to Photos"
+                onPress={onSave}
+                loading={busy}
+                icon={<DownloadSimple size={16} color={colors.accent} />}
+                style={{ flex: 1 }}
+              />
+              <Button
+                variant="secondary"
+                iconOnly
+                onPress={onShare}
+                loading={busy}
+                icon={<ShareNetwork size={17} color={colors.text} />}
+              />
+            </View>
+          ) : (
+            <Text style={styles.viewOnly}>View only — verifier devices can't export QR images.</Text>
+          )}
         </Pressable>
       </Pressable>
     </Modal>
@@ -98,4 +108,5 @@ const styles = StyleSheet.create({
   code: { fontFamily: fonts.monoMedium, fontSize: 14, color: colors.text, textAlign: 'center' },
   meta: { fontSize: 12, color: 'rgba(233,233,237,0.6)', fontFamily: fonts.body, textAlign: 'center' },
   actions: { flexDirection: 'row', gap: 10, width: '100%' },
+  viewOnly: { fontSize: 11.5, color: 'rgba(233,233,237,0.45)', fontFamily: fonts.body, textAlign: 'center' },
 });

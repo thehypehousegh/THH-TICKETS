@@ -16,6 +16,7 @@ import { longWhen } from '../utils/codes';
 import { exportEventTicketsPdf } from '../utils/pdf';
 import { exportEventData } from '../utils/eventTransfer';
 import { findCodeMatches } from '../utils/verify';
+import { useScreenCaptureGuard } from '../utils/screenCaptureGuard';
 import { colors, fonts } from '../theme/tokens';
 
 type Props = RootScreenProps<'EventDetail'>;
@@ -36,6 +37,8 @@ export function EventDetailScreen({ route, navigation }: Props) {
   const [verifyQuery, setVerifyQuery] = useState('');
   const [busyCodeId, setBusyCodeId] = useState<string | null>(null);
   const event = getEvent(eventId);
+
+  useScreenCaptureGuard(!isHost);
 
   if (!event) {
     return (

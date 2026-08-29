@@ -45,7 +45,11 @@ it opens, it asks what this phone is:
 - **Main host** — the only role that can create events, generate ticket codes, and
   produce the final PDF report. Can also scan/verify, same as a verifier phone.
 - **Door verifier** — imports an event from the host, then scans or types codes to
-  check people in. No "New event" or "Generate codes" — just verification.
+  check people in. No "New event", "Generate codes", or "Export PDF" — just
+  verification. A verifier can still view a code's QR and copy its plain text (e.g.
+  to paste into the verify box if someone lost their code) but can't save or share
+  the QR image, and screenshots/screen recording are blocked outright on any screen
+  showing code or QR content — nothing to distribute, only to check in.
 
 You can change a phone's role later from the Reservations tab (tap "Change" next to
 "Device role" near the bottom) if you need to repurpose one.
@@ -165,6 +169,9 @@ nothing extra needs installing.
 - `src/db/role.ts`, `src/components/RoleGate.tsx`, `src/components/RoleChoice.tsx` —
   the host/verifier device role, stored in SQLite (`app_settings` table) and gating
   which screens/buttons show up.
+- `src/utils/screenCaptureGuard.ts` — blocks screenshots/screen recording (via
+  `expo-screen-capture`) on any screen showing code/QR content, while the device
+  role is verifier.
 - `.github/workflows/android-apk.yml` — builds the Android APK and publishes it to
   the `latest` GitHub Release on every push to `main`.
 - `.github/keystore/debug.keystore` — a fixed debug signing key, committed on
