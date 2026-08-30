@@ -1,0 +1,54 @@
+rules_version = '2';
+
+// Data model & trust model (see README.md for the full picture):
+//  - organizers/{uid}        -- one profile per signed-in host account.
+//  - events/{eventId}        -- eventId is a short, random, human-typeable
+//                               code (see host/src/data/joinCode.ts). It is
+//                               NOT a secret in the cryptographic sense --
+//                               it IS the public "join code" handed to door
+//                               verifiers and embedded in the public
+//                               purchase link. Knowing it grants read access
+//                               and limited check-in write access by design.
+//  - events/{eventId}/batches/{batchId}  -- one per reservation/purchase.
+//  - events/{eventId}/codes/{codeId}     -- one per issued ticket.
+//
+// Only the organizer who created an event (hostUid == auth.uid) may create,
+// edit, or delete it, its batches, or its codes. Anyone holding the event's
+// join code -- the verifier app requires no login at all -- may read the
+// event and flip a code's usedAt/usedBy fields to check someone in or undo
+// a mistaken check-in, and nothing else: they can never create/delete a
+// code or batch, or edit a code's actual ticket data.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /organizers/{uid} {
+      allow get: if true; // public organizer name/logo shown on purchase pages
+      allow list: if false;
+      allow create, update: if request.auth != null && request.auth.uid == uid;
+      allow delete: if false;
+    }
+
+    match /events/{eventId} {
+      allow get: if true;
+      allow list: if request.auth != null && request.auth.uid == resource.data.hostUid;
+      allow create: if request.auth != null && request.resource.data.hostUid == request.auth.uid;
+      allow update, delete: if request.auth != null && resource.data.hostUid == request.auth.uid;
+
+      match /batches/{batchId} {
+        allow get, list: if true;
+        allow create, update, delete: if request.auth != null
+          && get(/databases/$(database)/documents/events/$(eventId)).data.hostUid == request.auth.uid;
+      }
+
+      match /codes/{codeId} {
+        allow get, list: if true;
+        allow create, delete: if request.auth != null
+          && get(/databases/$(database)/documents/events/$(eventId)).data.hostUid == request.auth.uid;
+        allow update: if request.auth != null && (
+          get(/databases/$(database)/documents/events/$(eventId)).data.hostUid == request.auth.uid
+          || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['usedAt', 'usedBy'])
+        );
+      }
+    }
+  }
+}

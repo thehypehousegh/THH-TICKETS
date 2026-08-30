@@ -1,279 +1,229 @@
-# THH Ticket Codes
+# THH Tickets
 
-Offline mobile app for The Hype House's ticket-code generation system: create an
-event, generate reservation codes per ticket type, hand out QR codes, and verify
-them at the door — scanning or by typing part of a code. No internet connection
-required — all data lives on-device.
+An e-ticketing platform for The Hype House: organizers create an event (with a
+flyer, venue, and priced ticket types), get a shareable link people can buy
+tickets from online, and door staff verify tickets live as they're scanned —
+no export files, no manual merging, everything syncs through one shared
+Firebase backend the instant it happens.
+
+This used to be a single offline app with no server at all. It's been rebuilt
+around two small apps plus a shared cloud backend, because live syncing
+between a host and multiple door phones — and letting anyone buy a ticket
+online — both need a server somewhere; there's no way to do either fully
+offline. See "Why two apps, and why online now" below for the trade-off.
+
+## The two apps
+
+- **THH Tickets Host** (`/host`) — for the event organizer. Requires an
+  account (email + password, created in-app). Creates events, sets ticket
+  prices, generates manual/walk-in codes, scans at the door, exports a PDF
+  report, and gets each event's shareable purchase link and door-verifier
+  event code.
+- **THH Tickets Verifier** (`/verifier`) — for anyone helping check tickets
+  at the door. No account, no sign-up — just enter the event's code (from the
+  host) and it shows that event's tickets live, ready to scan or search.
+  Deliberately small: no event creation, no pricing, no PDF export, nothing
+  a verifier doesn't need.
+
+Both apps talk to the same Firebase project, so a code generated on the host
+phone or bought online shows up on every verifier phone within moments, and a
+check-in from any phone shows up everywhere else the same way.
 
 ## Get it on your phone
 
-**Android — download and install directly, no computer needed:**
+Both apps are Android APKs published as two separate files on this repo's
+[**Releases page**](../../releases/tag/latest), rebuilt automatically on every
+push to `main`:
 
-1. Open the [**Releases page**](../../releases/tag/latest) on your phone.
-2. Download `THH-Ticket-Codes.apk` and open it.
-3. Android will ask permission to install from this source the first time — allow it.
-4. It installs like any other app. (It'll show as from an "unknown developer" — that's
-   expected for a direct-install build outside the Play Store, not a problem.)
+1. Open the Releases page on your phone.
+2. Download **`THH-Tickets-Host.apk`** (organizer) or **`THH-Tickets-Verifier.apk`**
+   (door staff) — whichever role that phone needs.
+3. Open the downloaded file and allow installing from this source when
+   Android asks (first time only).
 
-The app rebuilds and updates that same Releases link automatically every time this
-repo's `main` branch changes (see `.github/workflows/android-apk.yml`). Re-downloading
-and re-installing over an existing install upgrades it in place — your events, codes
-and check-in history stay put — because every build is signed with the same committed
-debug key (`.github/keystore/debug.keystore`; see notes below).
+Both are signed with the same fixed debug key committed in this repo
+(`.github/keystore/debug.keystore`), so re-downloading and reinstalling over
+an existing install upgrades it in place. Android will warn they're from an
+"unknown developer" — expected for a direct-install build outside the Play
+Store, not a problem.
 
-**iPhone — live preview via Expo Go (no real installer possible without a paid
-Apple Developer account):**
+iOS has no equivalent direct-install path without a paid Apple Developer
+account ($99/year) — without one, running either app on iPhone means someone
+with the code checked out runs `npx expo start` (from inside `host/` or
+`verifier/`) and the phone runs it live through the free **Expo Go** app.
 
-Apple doesn't allow installing an app on an iPhone outside the App Store or
-TestFlight unless you're enrolled in the Apple Developer Program ($99/year). Without
-that, the closest thing to "install and run it" is:
+## Why two apps, and why online now
 
-1. Install the free **Expo Go** app from the App Store.
-2. Someone with this code checked out runs `npx expo start` and shares the QR code
-   or link it prints (or use `npx expo start --tunnel` if your phone isn't on the
-   same Wi-Fi).
-3. Scan it in Expo Go.
+The original version of this app was fully offline: no server, no accounts,
+everything lived only on each phone, moved between phones by exporting and
+importing files by hand. That worked, but couldn't do two things that were
+asked for next: **real-time syncing** between a host and several door phones
+without anyone manually exporting/importing, and **selling tickets online** to
+people who never touch the host's phone at all. Both need a live server
+somewhere every device can reach — there's no offline-only way to do either.
 
-If you later get an Apple Developer account, this project can be built for TestFlight
-with no code changes — just ask.
+Firebase (Firestore + Auth) is that server. Splitting into two apps flows
+naturally from that: the organizer needs a real account (their events are
+tied to it, recoverable from any phone), while door staff shouldn't need one
+at all — they just need whatever event's code the host hands them, and
+nothing else the app can do. One combined app would mean either giving door
+staff more access than they need or bolting a confusing role-switcher back
+on; two small single-purpose apps are simpler for both audiences.
 
-## Device roles: host vs. verifier
+**The trade-off:** every phone now needs a working internet connection at the
+venue — Firestore's client caches recently-seen data and queues a check-in
+made mid-blip until the connection returns, so brief flakiness is fine, but
+if the venue genuinely has no signal or Wi-Fi at all, neither app can do
+anything. That's the deliberate cost of getting live sync and online sales.
 
-It's one app either way — the same download works for every phone. The first time
-it opens, it asks what this phone is:
+## Setting up the Firebase backend (one-time, for whoever runs this)
 
-- **Main host** — the only role that can create events, generate ticket codes, and
-  produce the final PDF report. Can also scan/verify, same as a verifier phone.
-- **Door verifier** — imports an event from the host, then scans or types codes to
-  check people in. No "New event", "Generate codes", or "Export PDF" — just
-  verification. A verifier can still view a code's QR and copy its plain text (e.g.
-  to paste into the verify box if someone lost their code) but can't save or share
-  the QR image, and screenshots/screen recording are blocked outright on any screen
-  showing code or QR content — nothing to distribute, only to check in.
+Both apps need the *same* Firebase project's config dropped into
+`host/src/firebase/config.ts` and `verifier/src/firebase/config.ts`:
 
-You can change a phone's role later from the Reservations tab (tap "Change" next to
-"Device role" near the bottom). Going from host → verifier is free (stepping down
-never needs permission), but a verifier switching itself to host has to enter a
-**host code** — a 6-digit PIN generated for each event when it's created, shown on
-that event's page to whoever's set as host. This exists specifically so a verifier
-device can't just tap its way into full host access; without a code matching some
-event it already knows about, the switch is refused. It's a deterrent against the
-casual/accidental case, not real cryptography — the code does travel inside the
-event's export file, so it's only as secret as who you hand that file to — but there
-is no server here to check a password against, so this is the strongest check
-possible while staying fully offline.
+1. [console.firebase.google.com](https://console.firebase.google.com) → **Add
+   project**.
+2. **Build → Firestore Database** → **Create database** → production mode →
+   pick a region.
+3. **Build → Authentication** → **Get started** → enable **Email/Password**
+   (for the host app's sign-up) — anonymous sign-in is not required, the
+   verifier app uses it automatically once enabled, but email/password is the
+   one you must turn on yourself.
+4. **Build → Authentication** → also enable **Anonymous** (verifier phones use
+   this silently, no UI, just so Firestore's rules can tell "some app" wrote a
+   check-in from "literally anyone with no token at all").
+5. **Project settings** → **Your apps** → the `</>` (Web) icon → register an
+   app → copy the `firebaseConfig` object it shows you into both
+   `config.ts` files above.
+6. **Firestore Database → Rules** → paste in `/firestore.rules` from this
+   repo's root. **Storage → Rules** → paste in `/storage.rules`. These are
+   what actually enforce "an organizer can only touch their own events" and
+   "a verifier can only flip a code's checked-in state, never its content" —
+   without them Firestore's defaults are far more permissive.
+7. **Build → Storage** → enable it (used for event flyers and organizer
+   logos).
 
-**Lost or never-saved an event's host code?** Each host phone also generates its own
-longer **recovery key** the first time it becomes host — a fallback that works for
-*any* event that phone created, not just one. It's shown (with a tap-to-reveal and a
-copy button) on the Reservations tab, host phones only, right above the device-role
-row. It travels the same way the per-event code does — inside that phone's event
-export files, nothing more — and there's deliberately no fixed, hardcoded key
-anywhere in this source tree: since this repo is public, a single shared master
-password baked into the code would be visible to literally anyone on GitHub. A
-key generated locally per host device, that never appears in source at all, doesn't
-have that problem.
+The `firebaseConfig` values are safe to commit even in this **public** repo —
+Firebase's security model is enforced by the rules in step 6, not by keeping
+the config secret.
 
-## Getting other phones ready for door duty
+## Online ticket sales (not wired up yet)
 
-Since there's no server and no live sync between devices, install the app (above) on
-each phone that will help scan tickets — set it to **Door verifier** — then hand
-each of them the event's data from the **host** phone:
+The data model already has a place for this — ticket prices are set per type
+when an event is created, and `EventDetailScreen` shows a purchase link — but
+two pieces still need real-world setup before anyone can actually pay for a
+ticket:
 
-1. On the host phone, open the event and tap **Share event data** (opens the share
-   sheet — AirDrop, Bluetooth, WhatsApp, email, a USB cable, whatever you'd
-   normally use) or the download icon beside it for **Save to device**, which
-   skips the share sheet entirely and lets you pick a folder (Files/SAF on
-   Android, Files/iCloud Drive on iOS) to write the JSON file straight into.
-   Either way it's the same file: that event's details, ticket types, and every
-   code issued so far.
-2. On each verifier phone, open the app's Events tab and tap the **import** icon
-   (next to "New" — verifier phones won't have a "New" button, that's host-only),
-   then pick the file you just sent over.
-3. Everyone can now scan or verify any of those codes independently, offline.
+- **Payment**: a real Paystack account (cards + Mobile Money) under the
+  organizer's business, with API keys handed over so a server-side function
+  can verify each payment before a ticket is issued. Payment status is never
+  trusted from the buyer's browser alone — that's how someone would get a
+  free ticket.
+- **The public purchase page itself**: a small web page (flyer, event
+  summary, organizer info, ticket picker, Paystack checkout) hosted via
+  Firebase Hosting, plus a Cloud Function to verify Paystack's webhook and
+  create the ticket. Neither exists yet.
 
-Any codes generated *after* you shared the file only exist on the host phone until
-you export and re-share again — re-importing is always safe, it just adds whatever's
-new.
+**USSD** (`*XXX#` style purchase) is a further step beyond that, and isn't
+something any app or Firebase project can provision on its own — it requires
+a real relationship with a telecom/USSD aggregator (e.g. Hubtel, Nsano,
+Wigal in Ghana), usually a shared short code with a menu path, and typically
+some paperwork/fees. There's a `ussdShortCode` field already reserved on the
+event record for whenever that's set up.
 
-## After the event: one combined report
+## Setting up an event (host app)
 
-Each phone only knows about the check-ins it personally recorded — there's no live
-sync while doors are open. To find out who actually got in overall:
+1. Sign up with an email, password, organizer name, contact, and (optional)
+   logo.
+2. **New** → fill in the event: name, description, date/time, venue name,
+   optionally "Use my current location" for a map pin, an optional flyer
+   image, and one or more ticket types each with its own price.
+3. The event's page shows its **online purchase link** (copy/share it however
+   you'd normally promote the event) and its **door verifier event code** — a
+   short code (e.g. `K7RN2QX`) door staff type into the Verifier app. Both are
+   generated automatically; there's nothing to configure.
+4. **Generate ticket codes** on that page is for walk-ins/manual reservations
+   the host issues by hand (a name + ticket type + quantity) — separate from
+   whatever codes online purchases eventually create.
+5. **Export PDF report** any time for a No. / Name / Code(s) / checked-in
+   breakdown — it reflects live data, including check-ins from every
+   verifier phone, since everything already synced through Firestore.
+6. **Delete event** removes it and everything under it — for everyone,
+   including anyone still holding the purchase link or event code — since
+   there's no per-device copy left to fall back on once it's gone from the
+   shared backend.
 
-1. On each verifier phone, open the event and use **Share event data** or **Save to
-   device** again (same as before) — this time it carries that phone's check-in
-   results. Get that file back to the host phone.
-2. On the host phone, import each file the same way (Events tab → import icon).
-   Importing an event you already have **merges** check-ins rather than replacing
-   anything: for any code, whichever phone checked it in *first* is what sticks, so
-   feeding in results from three door phones just combines them, and nothing you
-   already knew gets erased. If Daniel's Regular code was accidentally scanned on
-   two phones, only the earlier of the two timestamps survives — no double-counting.
-3. Tap **Export PDF** on the host phone. The report now shows, per code, whether and
-   when it was checked in, plus a summary line up top: total generated, checked in,
-   and not checked in — the full picture from every phone combined.
+## Verifying tickets at the door (verifier app)
 
-**The trade-off that comes with staying offline:** between steps 1 and 3, two
-phones scanning the exact same ticket won't warn each other — there's no live sync
-to catch that in the moment, only the after-the-fact merge above. For a small door
-team that's talking to each other, this is a reasonable trade for not needing a
-server; if double-scanning is a real worry, splitting ticket types across phones
-(one phone handles Regular, another handles VIP) sidesteps it entirely.
+1. Open the app, enter the event's code from the host, tap **Join event**.
+   It remembers the event across restarts, so this is a one-time thing per
+   phone per event.
+2. **Scan QR code** opens the camera; point it at a ticket's QR code. A match
+   shows who it's for and a **Check in** button (or **Undo check-in** if
+   already used).
+3. **Or type part of a code** works without a camera — useful if a code was
+   texted or read aloud.
+4. **Leave this event** to switch to a different one later.
 
-## Uninstalling, and keeping your data across it
-
-Neither Android nor iOS lets any app hook into or customize its own uninstall
-confirmation — "keep data?" isn't a prompt this app (or any third-party app) is able
-to add, so there's no in-app setting that changes what happens when you uninstall.
-What actually happens depends on your phone:
-
-- **Android** may offer to restore an app's data automatically after you reinstall
-  it, via its own account-based backup — this is an OS/Google-account setting,
-  not something this app controls, and isn't guaranteed.
-- **iOS** has "Offload App" (Settings → General → iPhone Storage) — it removes the
-  app but keeps its data, and reinstalling restores it automatically. A plain
-  uninstall does not do this, and there's no way for the app to change that.
-
-Since none of that is reliable or guaranteed, the app has its own fully-controlled
-equivalent: on the **Reservations** tab, tap **Manage** next to "Back up or restore
-all data" for:
-
-- **Share backup file** / **Save backup to device** — bundles every event this
-  phone knows about, every code, and this device's role + recovery key into one
-  JSON file, the same way per-event export works (share sheet, or save straight to
-  a folder you pick).
-- **Restore from a backup file** — reads that file back in. Existing events merge
-  (same earliest-check-in-wins rule as regular import) rather than getting wiped,
-  and this device's role and recovery key are set to match the backup — so restoring
-  right after a fresh install brings a phone back to exactly how it was before.
-
-Back up before uninstalling (or periodically, e.g. after each event) if you want a
-guaranteed way back, rather than hoping the OS's own backup behavior covers it.
-
-## Permissions
-
-Android and iOS only allow asking for camera/photos access at runtime, never during
-installation — so the first time you open the app (right after picking a device
-role), it asks once, explains why (scanning tickets, saving/sharing QR codes), and
-gets out of the way. Every launch after that skips straight to the Events list.
-
-## Verifying tickets at the door
-
-On an event's page, under **Verify at the door**:
-
-- **Scan QR code** opens the camera. Point it at a ticket's QR code; if it matches
-  a code on this event, you'll see who it's for and a **Check in** button (or
-  **Undo check-in** if it's already been used — mistakes happen).
-- **Type part of a code** works without a camera — useful if a code was texted or
-  read aloud rather than shown as an image. Matches show the same check-in card.
-
-Each generated code also has its own downloadable QR (tap the QR icon next to a
-code on its Output screen) — **Save to Photos** or **Share** it directly, e.g. to
-text or email someone their ticket as an image. When a name has more than one code
-(Daniel's 2 Regular + 3 Double + 1 VIP), **Save all N QR codes to Photos** saves
-every one of them in a single tap instead of one at a time — and the share icon
-beside it sends all of them at once too, bundled into a single `.zip` (the share
-sheet only ever takes one file, so that's what "share several images in one action"
-turns into) that opens fine from Files on Android or iOS, WhatsApp, email, etc.
-
-## Running it yourself
-
-```
-npm install
-npx expo start
-```
-
-Scan the QR code with **Expo Go** (iOS or Android) — no custom dev client or native
-build needed. Every dependency here (SQLite, print/share, camera/QR scanning, photo
-saving, fonts, navigation, icons) ships inside Expo Go; the date/time and
-ticket-type pickers are custom components (`src/components/CalendarField.tsx`,
-`TimeField.tsx`, `SelectField.tsx`) built without native modules specifically so
-nothing extra needs installing.
+Every check-in from every phone (host or verifier) shows up on every other
+phone within moments — there's no export/import step anymore, and no
+after-the-event merge to do.
 
 ## Stack
 
-- **Expo (React Native) + TypeScript** — one codebase for iOS and Android.
-- **expo-sqlite** — an embedded SQLite database on-device (`src/db/schema.ts`,
-  `src/db/queries.ts`). All event, ticket-type, reservation-batch and code data lives
-  locally, including each code's check-in (`used_at`) state.
-- **expo-print + expo-sharing** — generates a per-event PDF (No. · Name · Code(s),
-  each with its checked-in status, plus generated/checked-in/not-checked-in totals)
-  and hands it to the OS share sheet.
-- **react-native-qrcode-svg + expo-file-system + expo-media-library** — renders,
-  saves, and shares a QR image per code (`src/components/QrModal.tsx`,
-  `src/utils/qrExport.ts`).
-- **expo-camera** — QR scanning for door check-in (`src/screens/ScanScreen.tsx`).
-- **expo-document-picker** — importing a shared event file (`src/utils/eventTransfer.ts`).
-- **React Navigation** — a bottom-tab (`Events` / `Reservations`) + native-stack root
-  navigator (`src/navigation`).
+- **Expo (React Native) + TypeScript**, two independent apps (`host/`,
+  `verifier/`) sharing one Firebase project.
+- **Firebase Auth** — email/password for the host app; silent anonymous
+  sign-in for the verifier app (no UI, just enough for Firestore's rules to
+  require *some* token on writes).
+- **Firestore** — the shared live database: `organizers/{uid}`,
+  `events/{eventId}`, and `events/{eventId}/batches|codes/{id}` subcollections.
+  Real-time listeners (`onSnapshot`) mean every screen updates itself the
+  moment anything changes anywhere, no polling or manual refresh.
+- **Firebase Storage** — event flyers and organizer logos
+  (`host/src/firebase/upload.ts`).
+- **expo-camera** — QR scanning in both apps.
+- **expo-image-picker / expo-location** (host only) — flyer/logo picking and
+  "use my current location" for a venue map pin.
+- **expo-print + expo-sharing** (host only) — the PDF report.
+- **react-native-qrcode-svg** (host only) — per-code QR rendering,
+  save-to-Photos, and share-as-zip for a whole reservation's codes.
 
 ## Where things live
 
-- `src/utils/codes.ts` — code generation + reservation-message formatting, ported
-  1:1 from the original design prototype's logic (brand prefix, event salt,
-  THH-first/event-first ordering, sign-off copy).
-- `src/db/` — SQLite schema, queries, and a `DataProvider` React context that loads
-  events/batches into memory and keeps SQLite as the source of truth.
-- `src/screens/` — Events list, Create event, Event detail, Generate codes,
-  Output (reservation message + per-code QR), Scan (camera check-in), Reservations log.
-- `src/utils/pdf.ts` — builds the per-event tickets PDF and shares it.
-- `src/utils/eventTransfer.ts` — builds/reads the per-event export file used to get
-  another phone's local database in sync before an event, plus the whole-device
-  backup/restore file (every event + device role/recovery key in one JSON file).
-- `src/utils/verify.ts` — code lookup used by both the scan screen and the "type
-  part of a code" search on the event page.
-- `src/db/role.ts`, `src/components/RoleGate.tsx`, `src/components/RoleChoice.tsx` —
-  the host/verifier device role, stored in SQLite (`app_settings` table) and gating
-  which screens/buttons show up.
-- `src/utils/screenCaptureGuard.ts` — blocks screenshots/screen recording (via
-  `expo-screen-capture`) on any screen showing code/QR content, while the device
-  role is verifier.
-- Each event's `hostKey` (`src/utils/codes.ts`'s `generateHostKey`, checked via
-  `isKnownHostKey` in `src/db/queries.ts`) — the code a verifier device must supply
-  to promote itself to host. Alongside it, each host device's own `hostMasterKey`
-  (`generateMasterKey`, stored in `app_settings` and stamped onto every event that
-  device creates) works as a fallback for the same check — see "Device roles" above.
-- `.github/workflows/android-apk.yml` — builds the Android APK and publishes it to
-  the `latest` GitHub Release on every push to `main`.
-- `.github/keystore/debug.keystore` — a fixed debug signing key, committed on
-  purpose so every CI-built APK has the same signature and can be installed as an
-  update rather than forcing an uninstall each time. It's a debug-only key (not a
-  Play Store release key) — there's nothing sensitive in it.
+- `firestore.rules`, `storage.rules` — the actual access control (see
+  "Setting up the Firebase backend" above for why these matter).
+- `host/src/data/` — Firestore-backed data layer (`AuthContext.tsx`,
+  `DataContext.tsx`, `queries.ts`, `types.ts`, `joinCode.ts`).
+- `host/src/screens/` — Login, Events list, Create event, Event detail,
+  Generate codes, Output (reservation message + QR), Scan, Reservations.
+- `host/src/utils/codes.ts` — code generation + reservation-message
+  formatting, unchanged from the original design prototype's logic.
+- `host/src/utils/links.ts` — builds an event's public purchase URL; update
+  `PUBLIC_SITE_BASE_URL` once the purchase site (see "Online ticket sales
+  (not wired up yet)") is deployed.
+- `verifier/src/` — deliberately small: `data/eventSync.ts` (join +
+  live batches/codes + check-in write), `screens/JoinScreen.tsx`,
+  `VerifyScreen.tsx`, `ScanScreen.tsx`. No custom fonts, no navigation
+  library, no local database — kept as light as the job allows.
+- `.github/workflows/host-apk.yml`, `verifier-apk.yml` — build and publish
+  each app's APK to the same `latest` GitHub Release, independently
+  (path-filtered so an unrelated change to one app doesn't rebuild the other).
+- `.github/keystore/debug.keystore` — shared fixed signing key for both apps
+  (a debug-only key, not a Play Store release key, safe to commit).
 
 ## Notes / things to revisit
 
-- Brand prefix (`THH`), sign-off wording (`See you on`), and event-salt length (`7`)
-  are constants in `src/utils/codes.ts`, matching the prototype's defaults. There's
-  no in-app settings screen for them yet — say the word if you want one.
-- No sample/demo data is seeded; the app starts empty.
-- The Android build is a **release-type** APK (JS bundle embedded, so it runs
-  standalone with no computer nearby) signed with the fixed key above rather than a
-  real Play Store release key — that's what makes it directly installable without a
-  Play Console account. Publishing to the Play Store for real needs a proper release
-  signing key and Play Console account — a different setup from what's here; ask if
-  you want that.
-- Check-in state never syncs between phones live — only when you export from one
-  and import into another, which merges (earliest check-in wins) rather than
-  overwrites. See "After the event: one combined report" above.
-- **Deleting an event** (host-only, on the event's page) removes it and every
-  ticket type, reservation, and code under it from this device, permanently — the
-  confirmation prompt reminds you to export/save a backup first if you might need
-  it again, since re-importing that file brings it all back. This is the intended
-  way to keep app storage from growing forever: once an event is over and you have
-  its report, delete it here rather than leaving it in the list indefinitely.
-- **Deleting a single code** (host-only, the trash icon next to a code on the
-  Output screen) removes just that one code; if it was the only code in its
-  reservation, the now-empty reservation is removed too. Also permanent — same
-  reasoning as deleting an event.
-- Code generation is host-only end to end, not just hidden from verifier phones:
-  `GenerateScreen` and `CreateEventScreen` both refuse outright if the device role
-  isn't host, closing a gap where a verifier could previously reach the generate
-  screen via the "Generate another" button on a reservation it was only viewing.
-- Two schema fixes worth knowing about if you're digging into `src/db/schema.ts`:
-  `PRAGMA foreign_keys` wasn't being turned on at all (SQLite defaults it off per
-  connection), so the `ON DELETE CASCADE` clauses were silently inert until this
-  was fixed — deleting an event now also explicitly deletes its children directly
-  rather than relying on that alone. And events created before the host-code
-  feature shipped get a real code backfilled automatically on first launch after
-  updating, instead of being stuck unable to ever promote a verifier device.
+- The old fully-offline version of this app (local SQLite, per-event
+  export/import, host-code and per-device master-key promotion system,
+  whole-device backup/restore) has been entirely replaced by Firebase Auth +
+  Firestore's own sync. None of that code or those files still exist in
+  `host/` or `verifier/` — a real login plus a shared live database
+  supersedes what all of it was working around.
+- No Play Store listing — same reasoning as before: a real release signing
+  key and Play Console account are a separate, later step if ever wanted.
+- The verifier app currently uses Expo's default placeholder icon —
+  swap `verifier/assets/*.png` for real branded icons whenever convenient.
+- Deleting an event is immediate and total (see "Setting up an event" above)
+  — there's deliberately no "restore" since the whole point of moving to a
+  shared backend was to stop needing per-device backups.

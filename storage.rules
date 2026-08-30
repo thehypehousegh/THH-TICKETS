@@ -1,0 +1,16 @@
+rules_version = '2';
+
+// Event flyers and organizer logos, uploaded from the host app
+// (host/src/firebase/upload.ts) to uploads/{uid}/... Public read (they're
+// shown on the public purchase page and in the verifier app), but only the
+// owning signed-in organizer may write into their own folder.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /uploads/{uid}/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == uid
+        && request.resource.size < 8 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+  }
+}
