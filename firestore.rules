@@ -23,8 +23,19 @@ rules_version = '2';
 // Super-admin: an organizer document's isAdmin field, which the app never
 // sets itself -- only ever toggled by hand in the Firebase console -- grants
 // that one account read access across every organizer and event on the
-// platform (see host/src/screens/AdminScreen.tsx). It grants no extra write
-// access beyond what any organizer already has over their own data.
+// platform (see host/src/screens/AdminScreen.tsx and web/src/pages/Admin.tsx),
+// AND the same create/update/delete access over any event, batch, code, or
+// discount that the event's own organizer has -- so the admin can open and
+// fix any event directly (see web/src/pages/EventManage.tsx), not just view
+// it. It still cannot touch another organizer's profile fields besides
+// isAdmin (never settable by any client) or read another organizer's
+// purchaseRequests unless they also own the related event.
+//
+// supportThreads/{id} + supportThreads/{id}/messages/{id}: a lightweight
+// help-desk channel. Either the organizer it belongs to, or the admin, may
+// start one (organizerUid is fixed at creation and never changes), post
+// messages into it, and read it; no one else can. eventId is optional (null
+// = a general question, not tied to one event) purely for display context.
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -54,28 +65,36 @@ service cloud.firestore {
         || (request.auth != null && request.auth.uid == resource.data.hostUid)
         || resource.data.status == 'published';
       allow create: if request.auth != null && request.resource.data.hostUid == request.auth.uid;
-      allow update, delete: if request.auth != null && resource.data.hostUid == request.auth.uid;
+      allow update, delete: if request.auth != null
+        && (resource.data.hostUid == request.auth.uid || isAdmin());
 
       match /batches/{batchId} {
         allow get, list: if true;
-        allow create, update, delete: if request.auth != null
-          && get(/databases/$(database)/documents/events/$(eventId)).data.hostUid == request.auth.uid;
+        allow create, update, delete: if request.auth != null && (
+          get(/databases/$(database)/documents/events/$(eventId)).data.hostUid == request.auth.uid
+          || isAdmin()
+        );
       }
 
       match /codes/{codeId} {
         allow get, list: if true;
-        allow create, delete: if request.auth != null
-          && get(/databases/$(database)/documents/events/$(eventId)).data.hostUid == request.auth.uid;
+        allow create, delete: if request.auth != null && (
+          get(/databases/$(database)/documents/events/$(eventId)).data.hostUid == request.auth.uid
+          || isAdmin()
+        );
         allow update: if request.auth != null && (
           get(/databases/$(database)/documents/events/$(eventId)).data.hostUid == request.auth.uid
+          || isAdmin()
           || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['usedAt', 'usedBy'])
         );
       }
 
       match /discounts/{discountId} {
         allow get, list: if true; // the future checkout page validates a code without logging in
-        allow create, update, delete: if request.auth != null
-          && get(/databases/$(database)/documents/events/$(eventId)).data.hostUid == request.auth.uid;
+        allow create, update, delete: if request.auth != null && (
+          get(/databases/$(database)/documents/events/$(eventId)).data.hostUid == request.auth.uid
+          || isAdmin()
+        );
       }
     }
 
@@ -96,6 +115,38 @@ service cloud.firestore {
       allow update: if request.auth != null && resource.data.hostUid == request.auth.uid
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
       allow delete: if false;
+    }
+
+    // Help-desk threads: an organizer reaching the admin about a specific
+    // event, or a general question. See the file-level comment above.
+    match /supportThreads/{threadId} {
+      function isParticipant() {
+        return request.auth != null
+          && (resource.data.organizerUid == request.auth.uid || isAdmin());
+      }
+
+      allow get, list: if isParticipant();
+      allow create: if request.auth != null
+        && (request.resource.data.organizerUid == request.auth.uid || isAdmin());
+      // Only status/lastMessage* bookkeeping fields ever change after
+      // creation -- organizerUid, eventId, etc. are fixed at creation time.
+      allow update: if isParticipant()
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status', 'lastMessageAt', 'lastMessagePreview']);
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        function threadParticipant() {
+          return request.auth != null && (
+            get(/databases/$(database)/documents/supportThreads/$(threadId)).data.organizerUid == request.auth.uid
+            || isAdmin()
+          );
+        }
+
+        allow get, list: if threadParticipant();
+        allow create: if threadParticipant() && request.resource.data.senderUid == request.auth.uid;
+        allow update, delete: if false;
+      }
     }
   }
 }

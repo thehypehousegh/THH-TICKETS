@@ -254,14 +254,31 @@ One account — yours — can see every organizer and every event on the
 platform: total events, paid vs. self-generated ticket counts, an estimated
 payout amount per organizer (paid tickets × their price — an estimate, not a
 reconciled Paystack settlement, until online payments are wired up), and each
-organizer's payout details. This is **not** a role you can grant yourself
-from inside either app, on purpose — it's a single `isAdmin: true` field on
-your own `organizers/{uid}` document, toggled by hand in the Firestore
-console (Firestore Database → Data → `organizers` → your document → add
-field `isAdmin` = `true`, boolean). Once set, a "Super admin" row appears at
-the bottom of the Reservations tab. Firestore's rules (`/firestore.rules`)
-check this same field server-side, so it can't be spoofed from a modified
-client.
+organizer's payout details. It can also **open, edit, or delete any
+organizer's event directly** (`/dashboard/events/:id` and `.../edit`, from
+links on the web app's `/admin` page) — the same access that event's own
+organizer has, not just read access. This is **not** a role you can grant
+yourself from inside either app, on purpose — it's a single `isAdmin: true`
+field on your own `organizers/{uid}` document, toggled by hand in the
+Firestore console (Firestore Database → Data → `organizers` → your document
+→ add field `isAdmin` = `true`, boolean). Once set, a "Super admin" row
+appears at the bottom of the Reservations tab (mobile) and an "Admin" link
+appears in the web app's nav. Firestore's rules (`/firestore.rules`) check
+this same field server-side, so it can't be spoofed from a modified client.
+
+### Support chat (organizer ↔ admin)
+
+The web app has a lightweight help-desk built on Firestore (`supportThreads`
++ a `messages` subcollection, no third-party service): any signed-in
+organizer can message the admin from `/support` (a general question, with a
+short static FAQ above it) or from a specific event's Manage page ("Message
+admin about this event"), and the admin sees every conversation in one inbox
+on `/admin`, replying inline — including on events they don't own, since
+they can already open and edit them. There's no AI in this loop yet; layering
+an AI-answered FAQ bot on top (like the sibling Next.js site's Groq-powered
+widget) is a natural follow-up once a provider/API key is chosen, but wasn't
+built here to avoid taking on a new paid/free third-party dependency
+unprompted.
 
 ## Verifying tickets at the door (verifier app)
 

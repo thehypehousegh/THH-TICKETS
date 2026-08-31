@@ -12,6 +12,7 @@ import { EventManage } from './pages/EventManage';
 import { Verify } from './pages/Verify';
 import { Admin } from './pages/Admin';
 import { Profile } from './pages/Profile';
+import { Support } from './pages/Support';
 
 export default function App() {
   return (
@@ -29,6 +30,7 @@ export default function App() {
           <Route path="/dashboard/events/:eventId" element={<RequireAuth><EventManage /></RequireAuth>} />
           <Route path="/dashboard/events/:eventId/edit" element={<RequireAuth><EventForm /></RequireAuth>} />
           <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
+          <Route path="/support" element={<RequireAuth><Support /></RequireAuth>} />
           <Route path="/admin" element={<RequireAuth><Admin /></RequireAuth>} />
         </Routes>
       </BrowserRouter>

@@ -141,3 +141,29 @@ export interface TicketSelection {
   typeCode: string;
   quantity: number;
 }
+
+export type SupportThreadStatus = 'open' | 'resolved';
+
+/** A help-desk conversation between one organizer and the admin -- either
+ * general (eventId null) or scoped to one of that organizer's events, e.g.
+ * started from that event's Manage page. */
+export interface SupportThread {
+  id: string;
+  organizerUid: string;
+  organizerName: string;
+  eventId: string | null;
+  eventName: string | null;
+  status: SupportThreadStatus;
+  lastMessageAt: string;
+  lastMessagePreview: string;
+  createdAt: string;
+}
+
+export interface SupportMessage {
+  id: string;
+  senderUid: string;
+  senderRole: 'organizer' | 'admin';
+  senderName: string;
+  text: string;
+  createdAt: string;
+}

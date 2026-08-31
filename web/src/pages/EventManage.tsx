@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
+import { useAuth } from '../data/AuthContext';
 import {
   getEvent,
+  getOrganizer,
+  getOrCreateSupportThread,
   watchEventBatches,
   watchEventDiscounts,
   watchPurchaseRequests,
@@ -14,16 +17,19 @@ import {
 } from '../data/queries';
 import { computeEventStats } from '../utils/stats';
 import { reservationMessage } from '../utils/codes';
+import { SupportChat } from '../components/SupportChat';
 import { Button, Card, Field, Input, Tag } from '../components/ui';
-import type { BatchRecord, DiscountKind, DiscountRecord, DiscountValueType, EventRecord, PurchaseRequest, TicketSelection } from '../data/types';
+import type { BatchRecord, DiscountKind, DiscountRecord, DiscountValueType, EventRecord, PurchaseRequest, SupportThread, TicketSelection } from '../data/types';
 
 export function EventManage() {
   const { eventId } = useParams<{ eventId: string }>();
+  const { user, organizer } = useAuth();
   const [event, setEvent] = useState<EventRecord | null>(null);
   const [batches, setBatches] = useState<BatchRecord[]>([]);
   const [discounts, setDiscounts] = useState<DiscountRecord[]>([]);
   const [requests, setRequests] = useState<PurchaseRequest[]>([]);
   const [openBatch, setOpenBatch] = useState<string | null>(null);
+  const [thread, setThread] = useState<SupportThread | null>(null);
 
   useEffect(() => {
     if (!eventId) return;
@@ -34,13 +40,27 @@ export function EventManage() {
     return () => { u1(); u2(); u3(); };
   }, [eventId]);
 
+  useEffect(() => {
+    if (!event) return;
+    getOrganizer(event.hostUid).then((owner) => {
+      getOrCreateSupportThread(event.hostUid, owner?.name ?? 'Organizer', event.id, event.name).then(setThread);
+    });
+  }, [event]);
+
   const stats = useMemo(() => (event ? computeEventStats(event, batches) : null), [event, batches]);
   const shareUrl = eventId ? `${window.location.origin}/e/${eventId}` : '';
+  const isOwner = event && user && event.hostUid === user.uid;
+  const isAdminViewer = organizer?.isAdmin && !isOwner;
 
   if (!event) return <div className="mx-auto max-w-4xl px-4 py-16 text-text-dim">Loading...</div>;
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
+      {isAdminViewer && (
+        <div className="mb-4 rounded-lg border border-warm/40 bg-warm/10 px-3 py-2 text-sm text-warm">
+          You're viewing this as admin -- changes you make here apply directly to this organizer's event.
+        </div>
+      )}
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-text">{event.name}</h1>
@@ -103,6 +123,18 @@ export function EventManage() {
       </Card>
 
       <Discounts event={event} discounts={discounts} />
+
+      {thread && user && (
+        <Card className="mt-6 flex flex-col gap-3">
+          <h2 className="font-medium text-text">{isAdminViewer ? 'Message organizer about this event' : 'Message admin about this event'}</h2>
+          <SupportChat
+            threadId={thread.id}
+            myUid={user.uid}
+            myRole={organizer?.isAdmin ? 'admin' : 'organizer'}
+            myName={organizer?.isAdmin ? 'Admin' : organizer?.name ?? 'Organizer'}
+          />
+        </Card>
+      )}
     </div>
   );
 }

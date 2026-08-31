@@ -28,6 +28,8 @@ import type {
   OrganizerProfile,
   PurchaseRequest,
   PurchaseRequestItem,
+  SupportMessage,
+  SupportThread,
   TicketSelection,
 } from './types';
 
@@ -302,6 +304,11 @@ export async function fetchAllOrganizers(): Promise<OrganizerProfile[]> {
   return snap.docs.map((d) => d.data() as OrganizerProfile);
 }
 
+export async function getOrganizer(uid: string): Promise<OrganizerProfile | null> {
+  const snap = await getDoc(doc(db, 'organizers', uid));
+  return snap.exists() ? (snap.data() as OrganizerProfile) : null;
+}
+
 export async function fetchEventBatchesOnce(eventId: string): Promise<BatchRecord[]> {
   const [batchesSnap, codesSnap] = await Promise.all([
     getDocs(collection(db, 'events', eventId, 'batches')),
@@ -363,4 +370,102 @@ export async function submitPurchaseRequest(
   };
   await setDoc(ref, record);
   return record;
+}
+
+/**
+ * Finds this organizer's existing thread for an event (or their general
+ * thread, if eventId is null), creating one if it doesn't exist yet. Two
+ * plain equality filters (organizerUid + eventId) need no composite index.
+ */
+export async function getOrCreateSupportThread(
+  organizerUid: string,
+  organizerName: string,
+  eventId: string | null,
+  eventName: string | null
+): Promise<SupportThread> {
+  const existing = await getDocs(
+    query(
+      collection(db, 'supportThreads'),
+      where('organizerUid', '==', organizerUid),
+      where('eventId', '==', eventId)
+    )
+  );
+  if (!existing.empty) return existing.docs[0].data() as SupportThread;
+
+  const ref = doc(collection(db, 'supportThreads'));
+  const now = new Date().toISOString();
+  const thread: SupportThread = {
+    id: ref.id,
+    organizerUid,
+    organizerName,
+    eventId,
+    eventName,
+    status: 'open',
+    lastMessageAt: now,
+    lastMessagePreview: '',
+    createdAt: now,
+  };
+  await setDoc(ref, thread);
+  return thread;
+}
+
+/** This organizer's own threads, most recently active first. */
+export function watchMyThreads(organizerUid: string, onChange: (threads: SupportThread[]) => void): Unsubscribe {
+  const q = query(
+    collection(db, 'supportThreads'),
+    where('organizerUid', '==', organizerUid),
+    orderBy('lastMessageAt', 'desc')
+  );
+  return onSnapshot(
+    q,
+    (snap) => onChange(snap.docs.map((d) => d.data() as SupportThread)),
+    (err) => {
+      console.error('[watchMyThreads] query failed -- check Firestore indexes are deployed:', err);
+      onChange([]);
+    }
+  );
+}
+
+/** Every thread on the platform, most recently active first -- admin inbox. */
+export function watchAllThreads(onChange: (threads: SupportThread[]) => void): Unsubscribe {
+  const q = query(collection(db, 'supportThreads'), orderBy('lastMessageAt', 'desc'));
+  return onSnapshot(
+    q,
+    (snap) => onChange(snap.docs.map((d) => d.data() as SupportThread)),
+    (err) => {
+      console.error('[watchAllThreads] query failed:', err);
+      onChange([]);
+    }
+  );
+}
+
+export function watchThreadMessages(threadId: string, onChange: (messages: SupportMessage[]) => void): Unsubscribe {
+  const q = query(collection(db, 'supportThreads', threadId, 'messages'), orderBy('createdAt', 'asc'));
+  return onSnapshot(q, (snap) => onChange(snap.docs.map((d) => d.data() as SupportMessage)));
+}
+
+export async function sendSupportMessage(
+  threadId: string,
+  senderUid: string,
+  senderRole: 'organizer' | 'admin',
+  senderName: string,
+  text: string
+): Promise<void> {
+  const trimmed = text.trim();
+  if (!trimmed) return;
+  const now = new Date().toISOString();
+  const messageRef = doc(collection(db, 'supportThreads', threadId, 'messages'));
+  const message: SupportMessage = { id: messageRef.id, senderUid, senderRole, senderName, text: trimmed, createdAt: now };
+
+  const batch = writeBatch(db);
+  batch.set(messageRef, message);
+  batch.update(doc(db, 'supportThreads', threadId), {
+    lastMessageAt: now,
+    lastMessagePreview: trimmed.slice(0, 140),
+  });
+  await batch.commit();
+}
+
+export async function setSupportThreadStatus(threadId: string, status: 'open' | 'resolved'): Promise<void> {
+  await updateDoc(doc(db, 'supportThreads', threadId), { status });
 }

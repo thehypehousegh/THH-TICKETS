@@ -26,6 +26,9 @@ export function Nav() {
               <NavLink to="/dashboard" className={({ isActive }) => (isActive ? 'text-accent2' : 'text-text-dim hover:text-text')}>
                 Dashboard
               </NavLink>
+              <NavLink to="/support" className={({ isActive }) => (isActive ? 'text-accent2' : 'text-text-dim hover:text-text')}>
+                Support
+              </NavLink>
               <button onClick={() => signOut()} className="text-text-dim hover:text-text">
                 Sign out
               </button>

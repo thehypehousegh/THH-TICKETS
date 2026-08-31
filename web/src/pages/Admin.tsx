@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../data/AuthContext';
-import { fetchAllEvents, fetchAllOrganizers, fetchEventBatchesOnce } from '../data/queries';
+import { fetchAllEvents, fetchAllOrganizers, fetchEventBatchesOnce, watchAllThreads } from '../data/queries';
 import { computeEventStats } from '../utils/stats';
 import { describeEventTiming } from '../utils/eventTiming';
+import { SupportChat } from '../components/SupportChat';
 import { Button, Card, Tag } from '../components/ui';
-import type { EventRecord, OrganizerProfile } from '../data/types';
+import type { EventRecord, OrganizerProfile, SupportThread } from '../data/types';
 
 interface OrganizerRollup {
   organizer: OrganizerProfile;
@@ -21,10 +23,12 @@ function formatPayout(o: OrganizerProfile): string {
 }
 
 export function Admin() {
-  const { organizer } = useAuth();
+  const { user, organizer } = useAuth();
   const [loading, setLoading] = useState(true);
   const [rollups, setRollups] = useState<OrganizerRollup[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [threads, setThreads] = useState<SupportThread[]>([]);
+  const [openThreadId, setOpenThreadId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -63,9 +67,16 @@ export function Admin() {
     if (organizer?.isAdmin) load();
   }, [organizer?.isAdmin, load]);
 
+  useEffect(() => {
+    if (!organizer?.isAdmin) return;
+    return watchAllThreads(setThreads);
+  }, [organizer?.isAdmin]);
+
   if (!organizer?.isAdmin) {
     return <div className="mx-auto max-w-4xl px-4 py-16 text-text-dim">Not authorized.</div>;
   }
+
+  const openThreads = threads.filter((t) => t.status === 'open');
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
@@ -76,8 +87,40 @@ export function Admin() {
       <p className="mb-6 text-sm text-text-dim">
         Every organizer and event on the platform. Revenue figures are computed from paid-ticket counts ×
         ticket price, not confirmed Paystack settlements -- use them as an estimate for payouts, not a
-        final reconciliation, until online payments are wired up.
+        final reconciliation, until online payments are wired up. Click any event to open, edit, or message
+        its organizer directly.
       </p>
+
+      <Card className="mb-6 flex flex-col gap-3">
+        <h2 className="font-medium text-text">Support inbox {openThreads.length > 0 && <span className="text-hot">({openThreads.length} open)</span>}</h2>
+        {threads.length === 0 ? (
+          <p className="text-sm text-text-dim">No support conversations yet.</p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {threads.map((t) => (
+              <div key={t.id} className="rounded-lg border border-divider p-3">
+                <button
+                  className="flex w-full items-center justify-between gap-2 text-left"
+                  onClick={() => setOpenThreadId(openThreadId === t.id ? null : t.id)}
+                >
+                  <div>
+                    <p className="font-medium text-text">
+                      {t.organizerName} {t.eventName ? <span className="text-text-dim">· {t.eventName}</span> : <span className="text-text-dim">· General</span>}
+                    </p>
+                    <p className="line-clamp-1 text-xs text-text-dim">{t.lastMessagePreview || 'No messages yet'}</p>
+                  </div>
+                  <Tag variant={t.status === 'open' ? 'hot' : 'outline'}>{t.status}</Tag>
+                </button>
+                {openThreadId === t.id && user && (
+                  <div className="mt-3 border-t border-divider pt-3">
+                    <SupportChat threadId={t.id} myUid={user.uid} myRole="admin" myName="Admin" />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
 
       {loading ? (
         <p className="text-text-dim">Loading...</p>
@@ -99,9 +142,13 @@ export function Admin() {
               {r.events.length > 0 && (
                 <div className="mt-2 flex flex-col gap-1 border-t border-divider pt-2">
                   {r.events.map((e) => (
-                    <div key={e.id} className="flex items-center justify-between text-sm">
+                    <div key={e.id} className="flex items-center justify-between gap-2 text-sm">
                       <span className="text-text">{e.name}</span>
-                      <Tag>{describeEventTiming(e)}</Tag>
+                      <div className="flex items-center gap-2">
+                        <Tag>{describeEventTiming(e)}</Tag>
+                        <Link to={`/dashboard/events/${e.id}`} className="font-medium text-accent2 hover:underline">Manage</Link>
+                        <Link to={`/dashboard/events/${e.id}/edit`} className="font-medium text-accent2 hover:underline">Edit</Link>
+                      </div>
                     </div>
                   ))}
                 </div>
