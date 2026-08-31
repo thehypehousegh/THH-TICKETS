@@ -138,17 +138,29 @@ event record for whenever that's set up.
 2. **New** → fill in the event: name, description, date/time, venue name,
    optionally "Use my current location" for a map pin, an optional flyer
    image, and one or more ticket types each with its own price.
-3. The event's page shows its **online purchase link** (copy/share it however
-   you'd normally promote the event) and its **door verifier event code** — a
-   short code (e.g. `K7RN2QX`) door staff type into the Verifier app. Both are
-   generated automatically; there's nothing to configure.
-4. **Generate ticket codes** on that page is for walk-ins/manual reservations
-   the host issues by hand (a name + ticket type + quantity) — separate from
-   whatever codes online purchases eventually create.
-5. **Export PDF report** any time for a No. / Name / Code(s) / checked-in
+3. **Share event** opens the native share sheet with a ready-made message
+   (name, date, venue, description, and the purchase link) — send it
+   wherever you'd normally promote the event. The event's page also shows
+   its **online purchase link** (copy it directly) and its **door verifier
+   event code** — a short code (e.g. `K7RN2QX`) door staff type into the
+   Verifier app. Both are generated automatically; there's nothing to
+   configure.
+4. **Generate ticket codes** on that page is for walk-ins, complimentary, or
+   guest codes the host issues by hand (a name + ticket type + quantity) —
+   free, and completely separate from whatever codes online purchases
+   eventually create. Every issued code still gets its own QR to copy/share,
+   the same as before.
+5. **Event dashboard** on that page breaks down **paid tickets** (from online
+   purchases, once wired up) and **self-generated tickets** (from step 4),
+   each by ticket type, plus a total-expected/verified/unverified summary —
+   all live, updating the instant anything changes anywhere. During
+   verification (scan or search, in either app), each match is tagged
+   **Paid** or **Self-generated** so door staff can tell at a glance how a
+   ticket was obtained.
+6. **Export PDF report** any time for a No. / Name / Code(s) / checked-in
    breakdown — it reflects live data, including check-ins from every
    verifier phone, since everything already synced through Firestore.
-6. **Delete event** removes it and everything under it — for everyone,
+7. **Delete event** removes it and everything under it — for everyone,
    including anyone still holding the purchase link or event code — since
    there's no per-device copy left to fall back on once it's gone from the
    shared backend.
@@ -202,6 +214,10 @@ after-the-event merge to do.
 - `host/src/utils/links.ts` — builds an event's public purchase URL; update
   `PUBLIC_SITE_BASE_URL` once the purchase site (see "Online ticket sales
   (not wired up yet)") is deployed.
+- `host/src/utils/stats.ts` — the event dashboard's paid/self-generated/
+  verified breakdown, computed from live batches+codes (a batch's `source`
+  field is `'online'` for a purchase or `'manual'` for anything the host
+  typed in on the Generate screen).
 - `verifier/src/` — deliberately small: `data/eventSync.ts` (join +
   live batches/codes + check-in write), `screens/JoinScreen.tsx`,
   `VerifyScreen.tsx`, `ScanScreen.tsx`. No custom fonts, no navigation

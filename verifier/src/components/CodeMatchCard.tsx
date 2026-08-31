@@ -28,7 +28,12 @@ export function CodeMatchCard({
   const used = !!code.usedAt;
   return (
     <View style={[styles.card, used && styles.cardUsed]}>
-      <Text style={styles.code}>{code.code}</Text>
+      <View style={styles.topRow}>
+        <Text style={styles.code}>{code.code}</Text>
+        <View style={[styles.sourceBadge, batch.source === 'online' && styles.sourceBadgePaid]}>
+          <Text style={styles.sourceBadgeText}>{batch.source === 'online' ? 'Paid' : 'Self-generated'}</Text>
+        </View>
+      </View>
       <Text style={styles.person}>{batch.person}</Text>
       <Text style={styles.type}>{code.type}</Text>
       <Text style={used ? styles.statusUsed : styles.statusValid}>
@@ -53,6 +58,13 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(145,132,217,0.45)',
   },
   cardUsed: { borderColor: 'rgba(224,176,80,0.55)' },
+  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  sourceBadge: {
+    paddingHorizontal: 10, paddingVertical: 3, borderRadius: 6,
+    borderWidth: 1, borderColor: colors.accent, backgroundColor: 'transparent',
+  },
+  sourceBadgePaid: { borderColor: 'transparent', backgroundColor: 'rgba(145,132,217,0.35)' },
+  sourceBadgeText: { fontSize: 11, color: colors.accent2 },
   code: { fontFamily: 'monospace', fontSize: 15, color: colors.text },
   person: { fontSize: 17, fontWeight: '600', color: colors.text, marginTop: 4 },
   type: { fontSize: 12.5, color: 'rgba(233,233,237,0.62)' },

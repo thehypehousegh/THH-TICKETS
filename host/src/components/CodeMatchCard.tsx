@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { CheckCircle, Clock } from 'phosphor-react-native';
 import { colors, fonts, radius } from '../theme/tokens';
 import { Button } from './Button';
+import { Tag } from './Tag';
 import type { CodeMatch } from '../utils/verify';
 
 function formatTime(iso: string) {
@@ -29,7 +30,12 @@ export function CodeMatchCard({
   const used = !!code.usedAt;
   return (
     <View style={[styles.card, used && styles.cardUsed]}>
-      <Text style={styles.code}>{code.code}</Text>
+      <View style={styles.topRow}>
+        <Text style={styles.code}>{code.code}</Text>
+        <Tag variant={batch.source === 'online' ? 'accent' : 'outline'}>
+          {batch.source === 'online' ? 'Paid' : 'Self-generated'}
+        </Tag>
+      </View>
       <Text style={styles.person}>{batch.person}</Text>
       <Text style={styles.type}>{code.type}</Text>
       <View style={styles.statusRow}>
@@ -64,6 +70,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(145,132,217,0.45)',
   },
   cardUsed: { borderColor: 'rgba(224,176,80,0.55)' },
+  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   code: { fontFamily: fonts.monoMedium, fontSize: 15, color: colors.text },
   person: { fontFamily: fonts.heading, fontSize: 17, color: colors.text, marginTop: 4 },
   type: { fontSize: 12.5, color: 'rgba(233,233,237,0.62)', fontFamily: fonts.body },

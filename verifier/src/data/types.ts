@@ -28,6 +28,7 @@ export interface BatchRecord {
   id: string;
   person: string;
   createdAt: string;
+  source: 'manual' | 'online';
   codes: CodeRecord[];
 }
 

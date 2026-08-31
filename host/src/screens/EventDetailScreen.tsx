@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { Alert, Share, StyleSheet, Text, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { Copy, FilePdf, QrCode, ShareNetwork, Trash } from 'phosphor-react-native';
-import * as Sharing from 'expo-sharing';
 import type { RootScreenProps } from '../navigation/types';
 import { Screen } from '../components/Screen';
 import { Button } from '../components/Button';
@@ -18,6 +17,7 @@ import { longWhen } from '../utils/codes';
 import { exportEventTicketsPdf } from '../utils/pdf';
 import { findCodeMatches } from '../utils/verify';
 import { publicEventUrl } from '../utils/links';
+import { computeEventStats } from '../utils/stats';
 import { colors, fonts } from '../theme/tokens';
 
 type Props = RootScreenProps<'EventDetail'>;
@@ -50,6 +50,7 @@ export function EventDetailScreen({ route, navigation }: Props) {
   const batches = batchesForEvent(event.id);
   const issued = batches.reduce((n, b) => n + b.codes.length, 0);
   const purchaseUrl = publicEventUrl(event.id);
+  const stats = computeEventStats(event, batches);
 
   const onExport = async () => {
     setExporting(true);
@@ -67,10 +68,18 @@ export function EventDetailScreen({ route, navigation }: Props) {
     flash('Purchase link copied');
   };
 
-  const shareLink = async () => {
-    if (await Sharing.isAvailableAsync()) {
-      await Clipboard.setStringAsync(purchaseUrl);
-      flash('Link copied — paste it wherever you share');
+  const onShareEvent = async () => {
+    const lines = [
+      event.name,
+      longWhen(event),
+      event.venueName,
+      event.description ? `\n${event.description}` : '',
+      `\nGet your ticket: ${purchaseUrl}`,
+    ].filter(Boolean);
+    try {
+      await Share.share({ message: lines.join('\n') });
+    } catch {
+      flash('Could not open share sheet');
     }
   };
 
@@ -138,12 +147,20 @@ export function EventDetailScreen({ route, navigation }: Props) {
         ))}
       </View>
 
+      <Button
+        variant="primary"
+        size="lg"
+        block
+        title="Share event"
+        onPress={onShareEvent}
+        icon={<ShareNetwork size={17} color={colors.accent} />}
+      />
+
       <View style={styles.linkCard}>
         <Text style={styles.kicker}>ONLINE PURCHASE LINK</Text>
         <Text style={styles.linkValue}>{purchaseUrl}</Text>
         <View style={styles.actionsRow}>
           <Button variant="secondary" title="Copy link" onPress={copyLink} icon={<Copy size={15} color={colors.text} />} style={{ flex: 1 }} />
-          <Button variant="secondary" iconOnly onPress={shareLink} icon={<ShareNetwork size={15} color={colors.text} />} />
         </View>
         <Divider />
         <Text style={styles.kicker}>DOOR VERIFIER EVENT CODE</Text>
@@ -154,11 +171,58 @@ export function EventDetailScreen({ route, navigation }: Props) {
         </View>
       </View>
 
+      <Divider />
+
+      <View style={{ gap: 10 }}>
+        <Text style={styles.sectionLabel}>EVENT DASHBOARD</Text>
+
+        <View style={styles.statBigRow}>
+          <View style={styles.statBig}>
+            <Text style={styles.statBigNumber}>{stats.total}</Text>
+            <Text style={styles.statBigLabel}>Total expected</Text>
+          </View>
+          <View style={styles.statBig}>
+            <Text style={[styles.statBigNumber, { color: colors.accent }]}>{stats.verified}</Text>
+            <Text style={styles.statBigLabel}>Verified</Text>
+          </View>
+          <View style={styles.statBig}>
+            <Text style={[styles.statBigNumber, { color: 'rgba(233,233,237,0.55)' }]}>{stats.unverified}</Text>
+            <Text style={styles.statBigLabel}>Unverified</Text>
+          </View>
+        </View>
+
+        <View style={styles.statCard}>
+          <View style={styles.statCardHeader}>
+            <Text style={styles.statCardTitle}>Paid tickets</Text>
+            <Text style={styles.statCardTotal}>{stats.paidTotal}</Text>
+          </View>
+          {stats.byType.map((t) => (
+            <View key={`paid-${t.label}`} style={styles.statTypeRow}>
+              <Text style={styles.statTypeLabel}>{t.label}</Text>
+              <Text style={styles.statTypeValue}>{t.paid}</Text>
+            </View>
+          ))}
+        </View>
+
+        <View style={styles.statCard}>
+          <View style={styles.statCardHeader}>
+            <Text style={styles.statCardTitle}>Self-generated tickets</Text>
+            <Text style={styles.statCardTotal}>{stats.freeTotal}</Text>
+          </View>
+          {stats.byType.map((t) => (
+            <View key={`free-${t.label}`} style={styles.statTypeRow}>
+              <Text style={styles.statTypeLabel}>{t.label}</Text>
+              <Text style={styles.statTypeValue}>{t.free}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
+
       <Button
         variant="primary"
         size="lg"
         block
-        title="Generate ticket codes (walk-ins / manual)"
+        title="Generate ticket codes (walk-ins / comps / guests)"
         onPress={() => navigation.navigate('Generate', { eventId: event.id })}
       />
       <Button
@@ -223,7 +287,9 @@ export function EventDetailScreen({ route, navigation }: Props) {
             <View style={styles.batchTop}>
               <Text style={styles.person}>{b.person}</Text>
               <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
-                {b.source === 'online' ? <Tag variant="neutral">online</Tag> : null}
+                <Tag variant={b.source === 'online' ? 'accent' : 'outline'}>
+                  {b.source === 'online' ? 'Paid' : 'Self-generated'}
+                </Tag>
                 <Tag variant="accent">{b.codes.length}×</Tag>
               </View>
             </View>
@@ -266,6 +332,20 @@ const styles = StyleSheet.create({
   actionsRow: { flexDirection: 'row', gap: 10, alignItems: 'center' },
   tagCode: { fontFamily: fonts.mono, color: colors.accent },
   linkCard: { backgroundColor: colors.surface, borderRadius: 10, padding: 14, gap: 8 },
+  statBigRow: { flexDirection: 'row', gap: 8 },
+  statBig: {
+    flex: 1, backgroundColor: colors.surface, borderRadius: 10, padding: 12,
+    alignItems: 'center', gap: 2,
+  },
+  statBigNumber: { fontFamily: fonts.heading, fontSize: 22, color: colors.text },
+  statBigLabel: { fontSize: 10.5, color: 'rgba(233,233,237,0.5)', fontFamily: fonts.body, textAlign: 'center' },
+  statCard: { backgroundColor: colors.surface, borderRadius: 10, padding: 14, gap: 8 },
+  statCardHeader: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
+  statCardTitle: { fontFamily: fonts.headingSemibold, fontSize: 13, color: colors.text },
+  statCardTotal: { fontFamily: fonts.monoBold, fontSize: 15, color: colors.accent },
+  statTypeRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  statTypeLabel: { fontSize: 12.5, color: 'rgba(233,233,237,0.65)', fontFamily: fonts.body },
+  statTypeValue: { fontSize: 12.5, color: colors.text, fontFamily: fonts.monoMedium },
   kicker: { fontFamily: fonts.headingSemibold, fontSize: 10, letterSpacing: 1.8, color: colors.accent },
   linkValue: { fontFamily: fonts.mono, fontSize: 11.5, color: 'rgba(233,233,237,0.75)' },
   hint: { fontSize: 11.5, lineHeight: 16, color: 'rgba(233,233,237,0.5)', fontFamily: fonts.body },
