@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../data/AuthContext';
-import { Button, Card, Field, Input } from '../components/ui';
+import { Button, Card, Field, Input, PasswordInput } from '../components/ui';
 
 export function Signup() {
   const { signUp } = useAuth();
@@ -46,7 +46,7 @@ export function Signup() {
             <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
           </Field>
           <Field label="Password">
-            <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
+            <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
           </Field>
           {error && <p className="text-sm text-danger">{error}</p>}
           <Button type="submit" disabled={loading}>{loading ? 'Creating account...' : 'Create account'}</Button>

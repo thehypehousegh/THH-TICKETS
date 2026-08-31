@@ -1,4 +1,5 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 import {
   createUserWithEmailAndPassword,
   onAuthStateChanged,
@@ -30,6 +31,10 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+// Fallback poll interval for verification status while the app-state
+// listener below (the primary mechanism) is between foreground events.
+const VERIFY_POLL_MS = 20000;
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [organizer, setOrganizer] = useState<OrganizerProfile | null>(null);
@@ -39,21 +44,61 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     return onAuthStateChanged(auth, async (nextUser) => {
       setUser(nextUser);
-      setEmailVerified(nextUser?.emailVerified ?? false);
       if (nextUser) {
+        // Picks up an existing user who verified their email in a previous
+        // session or on another device, without them ever tapping
+        // "I've verified" on this one -- the cached token can otherwise
+        // say unverified indefinitely.
+        if (!nextUser.emailVerified) {
+          try {
+            await nextUser.reload();
+          } catch {
+            // Non-fatal -- fall back to the (possibly stale) cached value.
+          }
+        }
+        setEmailVerified(auth.currentUser?.emailVerified ?? nextUser.emailVerified);
         const snap = await getDoc(doc(db, 'organizers', nextUser.uid));
         setOrganizer(snap.exists() ? (snap.data() as OrganizerProfile) : null);
       } else {
+        setEmailVerified(false);
         setOrganizer(null);
       }
       setLoading(false);
     });
   }, []);
 
+  const refreshEmailVerified = useCallback(async () => {
+    if (!auth.currentUser) return;
+    await auth.currentUser.reload();
+    setEmailVerified(auth.currentUser.emailVerified);
+  }, []);
+
+  // While signed in and not yet verified, re-check automatically whenever
+  // the app returns to the foreground (the common case: verify from the
+  // device's email app, then switch back) plus a slower background poll as
+  // a fallback -- so "I've verified" almost never needs to be tapped by hand.
+  const refreshRef = useRef(refreshEmailVerified);
+  refreshRef.current = refreshEmailVerified;
+  useEffect(() => {
+    if (!user || emailVerified) return;
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') refreshRef.current();
+    });
+    const interval = setInterval(() => refreshRef.current(), VERIFY_POLL_MS);
+    return () => {
+      sub.remove();
+      clearInterval(interval);
+    };
+  }, [user, emailVerified]);
+
   const signUp = useCallback(async (email: string, password: string, name: string, contact: string, logoUri?: string | null) => {
     const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
     await updateProfile(cred.user, { displayName: name.trim() });
-    await sendEmailVerification(cred.user);
+    try {
+      await sendEmailVerification(cred.user);
+    } catch (err) {
+      console.error('[signUp] sendEmailVerification failed:', err);
+    }
     const logoUrl = logoUri ? await uploadImage(cred.user.uid, 'logo', logoUri) : null;
     const profile: OrganizerProfile = {
       uid: cred.user.uid,
@@ -91,12 +136,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const resendVerificationEmail = useCallback(async () => {
     if (!auth.currentUser) return;
     await sendEmailVerification(auth.currentUser);
-  }, []);
-
-  const refreshEmailVerified = useCallback(async () => {
-    if (!auth.currentUser) return;
-    await auth.currentUser.reload();
-    setEmailVerified(auth.currentUser.emailVerified);
   }, []);
 
   return (

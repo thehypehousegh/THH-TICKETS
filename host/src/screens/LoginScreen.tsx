@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { ImageSquare } from 'phosphor-react-native';
 import { Screen } from '../components/Screen';
 import { Field } from '../components/Field';
+import { PasswordField } from '../components/PasswordField';
 import { Button } from '../components/Button';
 import { useAuth } from '../data/AuthContext';
 import { colors, fonts } from '../theme/tokens';
@@ -20,6 +22,34 @@ function readableError(e: unknown): string {
   return 'Something went wrong. Please try again.';
 }
 
+// Firebase Auth already throttles repeated failed sign-ins server-side --
+// this is just a client-side UX layer that locks the form after a few
+// failed tries with a visible countdown, so a user gets feedback well
+// before hitting Firebase's own limit.
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_MS = 60_000;
+
+function attemptsKey(email: string) {
+  return `thh-login-attempts:${email.trim().toLowerCase()}`;
+}
+
+async function readAttempts(email: string): Promise<{ count: number; lockedUntil: number }> {
+  try {
+    const raw = await AsyncStorage.getItem(attemptsKey(email));
+    return raw ? JSON.parse(raw) : { count: 0, lockedUntil: 0 };
+  } catch {
+    return { count: 0, lockedUntil: 0 };
+  }
+}
+
+async function writeAttempts(email: string, data: { count: number; lockedUntil: number }) {
+  try {
+    await AsyncStorage.setItem(attemptsKey(email), JSON.stringify(data));
+  } catch {
+    // Best-effort only.
+  }
+}
+
 export function LoginScreen() {
   const { signIn, signUp, resetPassword } = useAuth();
   const [mode, setMode] = useState<'signIn' | 'signUp' | 'reset'>('signIn');
@@ -31,6 +61,17 @@ export function LoginScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resetSent, setResetSent] = useState(false);
+  const [lockedUntil, setLockedUntil] = useState(0);
+  const [, forceTick] = useState(0);
+
+  useEffect(() => {
+    if (!lockedUntil) return;
+    const id = setInterval(() => forceTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [lockedUntil]);
+
+  const remainingSeconds = lockedUntil ? Math.max(0, Math.ceil((lockedUntil - Date.now()) / 1000)) : 0;
+  const locked = mode === 'signIn' && remainingSeconds > 0;
 
   const invalid =
     !email.trim() || !password || (mode === 'signUp' && (!name.trim() || !contact.trim()));
@@ -49,6 +90,14 @@ export function LoginScreen() {
 
   const onSubmit = async () => {
     if (invalid || busy) return;
+    if (mode === 'signIn') {
+      const state = await readAttempts(email);
+      const now = Date.now();
+      if (state.lockedUntil > now) {
+        setLockedUntil(state.lockedUntil);
+        return;
+      }
+    }
     setBusy(true);
     setError(null);
     try {
@@ -56,9 +105,24 @@ export function LoginScreen() {
         await signUp(email, password, name, contact, logoUri);
       } else {
         await signIn(email, password);
+        await writeAttempts(email, { count: 0, lockedUntil: 0 });
       }
     } catch (e) {
-      setError(readableError(e));
+      if (mode === 'signIn') {
+        const state = await readAttempts(email);
+        const nextCount = state.count + 1;
+        if (nextCount >= MAX_ATTEMPTS) {
+          const until = Date.now() + LOCKOUT_MS;
+          await writeAttempts(email, { count: 0, lockedUntil: until });
+          setLockedUntil(until);
+        } else {
+          await writeAttempts(email, { count: nextCount, lockedUntil: 0 });
+          const left = MAX_ATTEMPTS - nextCount;
+          setError(`${readableError(e)} (${left} attempt${left === 1 ? '' : 's'} left)`);
+        }
+      } else {
+        setError(readableError(e));
+      }
     } finally {
       setBusy(false);
     }
@@ -87,9 +151,12 @@ export function LoginScreen() {
           <Text style={styles.title}>Reset password</Text>
         </View>
         {resetSent ? (
-          <Text style={styles.error}>
-            If an account exists for {email}, a password reset link has been sent.
-          </Text>
+          <>
+            <Text style={styles.error}>
+              If an account exists for {email}, a password reset link has been sent.
+            </Text>
+            <Text style={styles.hint}>Don't see it? Check your spam/junk folder too.</Text>
+          </>
         ) : (
           <>
             <Field
@@ -149,15 +216,13 @@ export function LoginScreen() {
         autoCapitalize="none"
         keyboardType="email-address"
       />
-      <Field
-        label="Password"
-        placeholder="••••••••"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
+      <PasswordField label="Password" placeholder="••••••••" value={password} onChangeText={setPassword} />
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {locked ? (
+        <Text style={styles.error}>Too many failed attempts. Try again in {remainingSeconds}s.</Text>
+      ) : error ? (
+        <Text style={styles.error}>{error}</Text>
+      ) : null}
 
       <Button
         variant="primary"
@@ -166,7 +231,7 @@ export function LoginScreen() {
         title={mode === 'signUp' ? 'Create account' : 'Sign in'}
         onPress={onSubmit}
         loading={busy}
-        disabled={invalid}
+        disabled={invalid || locked}
       />
       <Button
         variant="ghost"
@@ -187,6 +252,7 @@ const styles = StyleSheet.create({
   kicker: { fontFamily: fonts.headingSemibold, fontSize: 10, letterSpacing: 2.2, color: colors.accent },
   title: { fontFamily: fonts.heading, fontSize: 24, color: colors.text },
   error: { fontSize: 12.5, color: '#e0705a', fontFamily: fonts.body },
+  hint: { fontSize: 12, color: 'rgba(233,233,237,0.55)', fontFamily: fonts.body },
   logoRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   logoPreview: { width: 44, height: 44, borderRadius: 8, backgroundColor: colors.surface },
 });
