@@ -10,10 +10,10 @@
 // </> icon). The verifier app (../../verifier/src/firebase/config.ts) must
 // use this exact same project so both apps read/write the same data.
 export const firebaseConfig = {
-  apiKey: 'REPLACE_ME',
-  authDomain: 'REPLACE_ME.firebaseapp.com',
-  projectId: 'REPLACE_ME',
-  storageBucket: 'REPLACE_ME.appspot.com',
-  messagingSenderId: 'REPLACE_ME',
-  appId: 'REPLACE_ME',
+  apiKey: 'AIzaSyBjSNZbQrDMCSfTo0DA30cdIAM2YhuW2rQ',
+  authDomain: 'thh-tickets.firebaseapp.com',
+  projectId: 'thh-tickets',
+  storageBucket: 'thh-tickets.firebasestorage.app',
+  messagingSenderId: '346806544306',
+  appId: '1:346806544306:web:82d8712ad7fba3e655e6ab',
 };
