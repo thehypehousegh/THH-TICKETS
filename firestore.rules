@@ -43,7 +43,16 @@ service cloud.firestore {
 
     match /events/{eventId} {
       allow get: if true;
-      allow list: if isAdmin() || (request.auth != null && request.auth.uid == resource.data.hostUid);
+      // list (a collection query, unlike get) is only granted for queries
+      // Firestore can statically prove are constrained to published events
+      // -- i.e. a `where('status', '==', 'published')` filter, exactly what
+      // THH Events' public browse page and the Upcoming Events feed on the
+      // main site both use (see web/src/data/queries.ts's
+      // watchPublishedEvents). A bare, unfiltered list still requires being
+      // the event's own organizer or the admin.
+      allow list: if isAdmin()
+        || (request.auth != null && request.auth.uid == resource.data.hostUid)
+        || resource.data.status == 'published';
       allow create: if request.auth != null && request.resource.data.hostUid == request.auth.uid;
       allow update, delete: if request.auth != null && resource.data.hostUid == request.auth.uid;
 
