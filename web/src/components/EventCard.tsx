@@ -11,18 +11,24 @@ export function EventCard({ event }: { event: EventRecord }) {
   return (
     <Link
       to={`/e/${event.id}`}
-      className="group flex flex-col overflow-hidden rounded-xl border border-divider bg-surface transition hover:border-accent/50"
+      className="group relative flex flex-col overflow-hidden rounded-xl border border-divider bg-surface/80 backdrop-blur-sm transition duration-300 hover:-translate-y-1 hover:border-accent hover:shadow-2xl hover:shadow-accent/30"
     >
       <div className="relative aspect-[4/5] w-full overflow-hidden bg-surface-hi">
         {event.flyerUrl ? (
           <img
             src={event.flyerUrl}
             alt={event.name}
-            className="h-full w-full object-cover transition group-hover:scale-105"
+            className="h-full w-full object-cover transition duration-500 group-hover:scale-110"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-text-dim text-sm">No flyer</div>
+          <div
+            className="flex h-full w-full items-center justify-center p-4 text-center text-sm font-medium text-white/80"
+            style={{ backgroundImage: 'var(--gradient-brand)' }}
+          >
+            {event.name}
+          </div>
         )}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/0 to-black/10" />
         <div className="absolute left-2 top-2">
           <StatusBadge event={event} />
         </div>
@@ -33,10 +39,10 @@ export function EventCard({ event }: { event: EventRecord }) {
         )}
       </div>
       <div className="flex flex-1 flex-col gap-1 p-3 text-left">
-        <h3 className="line-clamp-1 font-medium text-text">{event.name}</h3>
+        <h3 className="line-clamp-1 font-semibold text-text">{event.name}</h3>
         <p className="line-clamp-1 text-xs text-text-dim">{longWhen(event)}</p>
         <p className="line-clamp-1 text-xs text-text-dim">{event.venueName}</p>
-        <p className="mt-auto pt-1 text-sm font-medium text-accent2">
+        <p className="gradient-brand-text mt-auto pt-1 text-sm font-bold">
           {cheapest === null ? 'Free' : cheapest === 0 ? 'Free' : `From GHS ${cheapest.toFixed(2)}`}
         </p>
       </div>

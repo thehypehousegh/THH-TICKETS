@@ -184,20 +184,32 @@ export async function setCodeUsed(eventId: string, codeId: string, used: boolean
 
 export function watchHostEvents(hostUid: string, onChange: (events: EventRecord[]) => void): Unsubscribe {
   const q = query(collection(db, 'events'), where('hostUid', '==', hostUid), orderBy('createdAt', 'desc'));
-  return onSnapshot(q, (snap) => {
-    onChange(snap.docs.map((d) => d.data() as EventRecord));
-  });
+  return onSnapshot(
+    q,
+    (snap) => onChange(snap.docs.map((d) => d.data() as EventRecord)),
+    (err) => {
+      console.error('[watchHostEvents] query failed -- check Firestore indexes are deployed:', err);
+      onChange([]);
+    }
+  );
 }
 
 /** Public browse page: every published event, newest first. Ended/draft
  * events are filtered out client-side by describeEventTiming/status so a
- * single listener also covers "ongoing" and "ended" tabs without extra
- * composite-index queries. */
+ * single listener also covers "ongoing" and "ended" tabs. Needs the
+ * (status, startDate) composite index in /firestore.indexes.json -- run
+ * `firebase deploy --only firestore:indexes` if this ever silently returns
+ * nothing (the error callback below logs when that's the cause). */
 export function watchPublishedEvents(onChange: (events: EventRecord[]) => void): Unsubscribe {
   const q = query(collection(db, 'events'), where('status', '==', 'published'), orderBy('startDate', 'asc'));
-  return onSnapshot(q, (snap) => {
-    onChange(snap.docs.map((d) => d.data() as EventRecord));
-  });
+  return onSnapshot(
+    q,
+    (snap) => onChange(snap.docs.map((d) => d.data() as EventRecord)),
+    (err) => {
+      console.error('[watchPublishedEvents] query failed -- check Firestore indexes are deployed:', err);
+      onChange([]);
+    }
+  );
 }
 
 export function watchEventBatches(eventId: string, onChange: (batches: BatchRecord[]) => void): Unsubscribe {

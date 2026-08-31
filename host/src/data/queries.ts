@@ -178,9 +178,17 @@ export async function setCodeUsed(eventId: string, codeId: string, used: boolean
 
 export function watchHostEvents(hostUid: string, onChange: (events: EventRecord[]) => void): Unsubscribe {
   const q = query(collection(db, 'events'), where('hostUid', '==', hostUid), orderBy('createdAt', 'desc'));
-  return onSnapshot(q, (snap) => {
-    onChange(snap.docs.map((d) => d.data() as EventRecord));
-  });
+  return onSnapshot(
+    q,
+    (snap) => onChange(snap.docs.map((d) => d.data() as EventRecord)),
+    (err) => {
+      // A missing composite index (hostUid + createdAt -- see
+      // /firestore.indexes.json) fails silently otherwise, leaving events
+      // permanently empty with no visible error.
+      console.error('[watchHostEvents] query failed -- check Firestore indexes are deployed:', err);
+      onChange([]);
+    }
+  );
 }
 
 /**
