@@ -140,6 +140,26 @@ The `firebaseConfig` values are safe to commit even in this **public** repo —
 Firebase's security model is enforced by the rules in step 6, not by keeping
 the config secret.
 
+### Password reset and email verification
+
+Both the host app and the web app use Firebase Auth's own built-in flows for
+these -- no custom backend, no third-party email service:
+- **Forgot password**: a "Forgot password?" link on both apps' sign-in
+  screens calls `sendPasswordResetEmail`, which sends Firebase's own reset
+  email and lands the user on Firebase's own hosted reset-password page.
+- **Email verification**: `sendEmailVerification` fires automatically right
+  after sign-up. A banner shows on every screen (web) or the Events list
+  (host app) for any signed-in account that hasn't verified yet, with
+  "Resend email" and "I've verified -- refresh" actions. Verification is
+  informational only for now -- an unverified account can still use every
+  feature -- since gating real functionality behind it wasn't asked for and
+  would need a product decision about what, if anything, to block.
+
+Firebase sends both emails using its own default templates and sender
+address out of the box; **Authentication → Templates** in the console lets
+you customize the sender name/from-address and email copy later if wanted,
+but nothing further is required for either to work today.
+
 ## Online ticket sales (checkout page live, payment not wired up yet)
 
 THH Events (`/web`) has the public purchase page: flyer, event summary,
@@ -314,6 +334,22 @@ plan** -- already true here since Storage needed it too. Groq's free tier
 covers this widget's low-volume traffic; there's no per-request billing
 surprise from Groq itself, only Firebase Functions' own free-tier invocation
 allowance (generous for this scale).
+
+### Automatic flyer cleanup
+
+A scheduled Cloud Function (`cleanupExpiredFlyers` in `functions/src/cleanupFlyers.ts`,
+runs daily at 03:00) deletes an event's flyer image from Storage -- and clears
+`flyerUrl` on the event doc -- once **14 days** have passed since that
+event's scheduled end date/time, to keep Storage usage from growing
+unbounded with old flyers nobody needs anymore. It uses the Admin SDK, so it
+bypasses Firestore/Storage rules entirely (same trust level as any other
+Cloud Function). One caveat: an event ended early (`status` flipped to
+`'ended'` before its scheduled end) has no separate "ended at" timestamp
+recorded, so its *originally scheduled* end date/time is still what the
+14-day countdown is measured from, not the moment it was actually ended --
+a precise `endedAt` field would be needed to close that gap, and wasn't
+added since it's a minor edge case. Deploys with everything else via
+`firebase deploy --only ...,functions` -- no extra setup needed beyond that.
 
 ## Verifying tickets at the door (verifier app)
 

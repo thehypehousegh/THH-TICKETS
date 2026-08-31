@@ -2,6 +2,8 @@ import React, { createContext, useCallback, useContext, useEffect, useState } fr
 import {
   createUserWithEmailAndPassword,
   onAuthStateChanged,
+  sendEmailVerification,
+  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
   updateProfile,
@@ -16,10 +18,14 @@ interface AuthContextValue {
   loading: boolean;
   user: User | null;
   organizer: OrganizerProfile | null;
+  emailVerified: boolean;
   signUp: (email: string, password: string, name: string, contact: string, logoFile?: File | null) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   updateOrganizer: (patch: Partial<Pick<OrganizerProfile, 'name' | 'contact' | 'logoUrl' | 'payout'>>) => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
+  resendVerificationEmail: () => Promise<void>;
+  refreshEmailVerified: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -27,11 +33,13 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [organizer, setOrganizer] = useState<OrganizerProfile | null>(null);
+  const [emailVerified, setEmailVerified] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     return onAuthStateChanged(auth, async (nextUser) => {
       setUser(nextUser);
+      setEmailVerified(nextUser?.emailVerified ?? false);
       if (nextUser) {
         const snap = await getDoc(doc(db, 'organizers', nextUser.uid));
         setOrganizer(snap.exists() ? (snap.data() as OrganizerProfile) : null);
@@ -45,6 +53,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signUp = useCallback(async (email: string, password: string, name: string, contact: string, logoFile?: File | null) => {
     const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
     await updateProfile(cred.user, { displayName: name.trim() });
+    await sendEmailVerification(cred.user);
     const logoUrl = logoFile ? await uploadImage(cred.user.uid, 'logo', logoFile) : null;
     const profile: OrganizerProfile = {
       uid: cred.user.uid,
@@ -75,8 +84,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [user]
   );
 
+  const resetPassword = useCallback(async (email: string) => {
+    await sendPasswordResetEmail(auth, email.trim());
+  }, []);
+
+  const resendVerificationEmail = useCallback(async () => {
+    if (!auth.currentUser) return;
+    await sendEmailVerification(auth.currentUser);
+  }, []);
+
+  const refreshEmailVerified = useCallback(async () => {
+    if (!auth.currentUser) return;
+    await auth.currentUser.reload();
+    setEmailVerified(auth.currentUser.emailVerified);
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ loading, user, organizer, signUp, signIn, signOut, updateOrganizer }}>
+    <AuthContext.Provider
+      value={{
+        loading,
+        user,
+        organizer,
+        emailVerified,
+        signUp,
+        signIn,
+        signOut,
+        updateOrganizer,
+        resetPassword,
+        resendVerificationEmail,
+        refreshEmailVerified,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

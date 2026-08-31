@@ -3,6 +3,7 @@ import { AuthProvider } from './data/AuthContext';
 import { RequireAuth } from './components/RequireAuth';
 import { Nav } from './components/Nav';
 import { ChatWidget } from './components/ChatWidget';
+import { VerifyEmailBanner } from './components/VerifyEmailBanner';
 import { Home } from './pages/Home';
 import { EventDetail } from './pages/EventDetail';
 import { Login } from './pages/Login';
@@ -20,6 +21,7 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <Nav />
+        <VerifyEmailBanner />
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/e/:eventId" element={<EventDetail />} />

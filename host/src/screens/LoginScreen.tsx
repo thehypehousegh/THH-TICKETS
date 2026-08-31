@@ -21,8 +21,8 @@ function readableError(e: unknown): string {
 }
 
 export function LoginScreen() {
-  const { signIn, signUp } = useAuth();
-  const [mode, setMode] = useState<'signIn' | 'signUp'>('signIn');
+  const { signIn, signUp, resetPassword } = useAuth();
+  const [mode, setMode] = useState<'signIn' | 'signUp' | 'reset'>('signIn');
   const [name, setName] = useState('');
   const [contact, setContact] = useState('');
   const [logoUri, setLogoUri] = useState<string | null>(null);
@@ -30,6 +30,7 @@ export function LoginScreen() {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [resetSent, setResetSent] = useState(false);
 
   const invalid =
     !email.trim() || !password || (mode === 'signUp' && (!name.trim() || !contact.trim()));
@@ -62,6 +63,54 @@ export function LoginScreen() {
       setBusy(false);
     }
   };
+
+  const onSendReset = async () => {
+    if (!email.trim() || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await resetPassword(email);
+    } catch {
+      // Same UI regardless of the specific error, so we never reveal
+      // whether an email address has an account.
+    } finally {
+      setResetSent(true);
+      setBusy(false);
+    }
+  };
+
+  if (mode === 'reset') {
+    return (
+      <Screen>
+        <View style={{ gap: 4, marginBottom: 8 }}>
+          <Text style={styles.kicker}>THE HYPE HOUSE</Text>
+          <Text style={styles.title}>Reset password</Text>
+        </View>
+        {resetSent ? (
+          <Text style={styles.error}>
+            If an account exists for {email}, a password reset link has been sent.
+          </Text>
+        ) : (
+          <>
+            <Field
+              label="Email"
+              placeholder="you@example.com"
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
+            />
+            <Button variant="primary" size="lg" block title="Send reset link" onPress={onSendReset} loading={busy} disabled={!email.trim()} />
+          </>
+        )}
+        <Button
+          variant="ghost"
+          title="Back to sign in"
+          onPress={() => { setMode('signIn'); setResetSent(false); setError(null); }}
+        />
+      </Screen>
+    );
+  }
 
   return (
     <Screen>
@@ -127,6 +176,9 @@ export function LoginScreen() {
           setMode((m) => (m === 'signUp' ? 'signIn' : 'signUp'));
         }}
       />
+      {mode === 'signIn' && (
+        <Button variant="ghost" title="Forgot password?" onPress={() => { setError(null); setResetSent(false); setMode('reset'); }} />
+      )}
     </Screen>
   );
 }

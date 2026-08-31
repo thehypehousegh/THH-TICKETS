@@ -1,5 +1,5 @@
 import React from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Image, StyleSheet, Text, View } from 'react-native';
 import { Plus } from 'phosphor-react-native';
 import type { TabScreenProps } from '../navigation/types';
 import { Screen } from '../components/Screen';
@@ -7,6 +7,7 @@ import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { Tag } from '../components/Tag';
 import { Divider } from '../components/Divider';
+import { VerifyEmailBanner } from '../components/VerifyEmailBanner';
 import { useData } from '../data/DataContext';
 import { useAuth } from '../data/AuthContext';
 import { longWhen, BRAND_PREFIX } from '../utils/codes';
@@ -27,19 +28,27 @@ export function EventsListScreen({ navigation }: Props) {
       : `${item.abbr}-${BRAND_PREFIX}-R####-####`;
     return (
       <Card onPress={() => navigation.navigate('EventDetail', { eventId: item.id })} style={styles.card}>
-        <View style={styles.topRow}>
-          <View style={styles.abbrBox}>
-            <Text style={styles.abbrText}>{item.abbr}</Text>
+        <View style={styles.cardRow}>
+          {item.flyerUrl ? (
+            <Image source={{ uri: item.flyerUrl }} style={styles.flyerThumb} />
+          ) : (
+            <View style={[styles.flyerThumb, styles.flyerThumbEmpty]}>
+              <Text style={styles.abbrText}>{item.abbr}</Text>
+            </View>
+          )}
+          <View style={styles.cardBody}>
+            <View style={styles.topRow}>
+              <Tag variant="outline">{describeEventTiming(item)}</Tag>
+              <Tag variant="neutral">{issued} codes</Tag>
+            </View>
+            <Text style={styles.name}>{item.name}</Text>
+            <View style={styles.metaCol}>
+              <Text style={styles.meta}>{longWhen(item)}</Text>
+              <Text style={styles.meta}>{item.venueName}</Text>
+            </View>
+            <Text style={styles.sample}>{sample}</Text>
           </View>
-          <Tag variant="outline">{describeEventTiming(item)}</Tag>
-          <Tag variant="neutral">{issued} codes</Tag>
         </View>
-        <Text style={styles.name}>{item.name}</Text>
-        <View style={styles.metaCol}>
-          <Text style={styles.meta}>{longWhen(item)}</Text>
-          <Text style={styles.meta}>{item.venueName}</Text>
-        </View>
-        <Text style={styles.sample}>{sample}</Text>
       </Card>
     );
   };
@@ -58,6 +67,7 @@ export function EventsListScreen({ navigation }: Props) {
           icon={<Plus size={15} color={colors.accent} />}
         />
       </View>
+      <VerifyEmailBanner />
       <Divider />
       <FlatList
         data={events}
@@ -76,15 +86,17 @@ const styles = StyleSheet.create({
   kicker: { fontFamily: fonts.headingSemibold, fontSize: 10, letterSpacing: 2.2, color: colors.accent, marginBottom: 6 },
   title: { fontFamily: fonts.heading, fontSize: 27, color: colors.text },
   list: { gap: 10, paddingBottom: 108, paddingTop: 4 },
-  card: { gap: 10, padding: 14, borderRadius: 14 },
-  topRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  abbrBox: {
+  card: { padding: 14, borderRadius: 14 },
+  cardRow: { flexDirection: 'row', gap: 12 },
+  flyerThumb: { width: 60, height: 80, borderRadius: 8, backgroundColor: colors.surface },
+  flyerThumbEmpty: {
+    alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
     borderColor: colors.accent,
-    borderRadius: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 4,
   },
+  cardBody: { flex: 1, gap: 8 },
+  topRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   abbrText: { fontFamily: fonts.monoBold, fontSize: 11, letterSpacing: 1, color: colors.accent },
   name: { fontFamily: fonts.heading, fontSize: 17, color: colors.text },
   metaCol: { gap: 2 },

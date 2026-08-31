@@ -1,6 +1,8 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
 
+export { cleanupExpiredFlyers } from './cleanupFlyers';
+
 const groqApiKey = defineSecret('GROQ_API_KEY');
 
 const MAX_MESSAGES = 20;

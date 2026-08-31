@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Alert, Share, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Share, StyleSheet, Text, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { Copy, FilePdf, PencilSimple, QrCode, ShareNetwork, Tag as TagIcon, Trash } from 'phosphor-react-native';
 import type { RootScreenProps } from '../navigation/types';
@@ -178,6 +178,7 @@ export function EventDetailScreen({ route, navigation }: Props) {
         <Tag variant={publishVariant}>{publishLabel}</Tag>
         <Tag variant="outline">{timingLabel}</Tag>
       </View>
+      {event.flyerUrl ? <Image source={{ uri: event.flyerUrl }} style={styles.flyerBanner} /> : null}
       <Text style={styles.name}>{event.name}</Text>
       <View style={{ gap: 3 }}>
         <Text style={styles.meta}>Starts {longWhen(event)}</Text>
@@ -407,6 +408,7 @@ export function EventDetailScreen({ route, navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
+  flyerBanner: { width: '100%', aspectRatio: 4 / 5, borderRadius: 12, backgroundColor: colors.surface, marginTop: 4 },
   topBadges: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   abbrBox: {
     alignSelf: 'flex-start',
