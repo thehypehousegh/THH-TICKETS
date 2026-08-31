@@ -110,9 +110,10 @@ the config secret.
 ## Online ticket sales (not wired up yet)
 
 The data model already has a place for this — ticket prices are set per type
-when an event is created, and `EventDetailScreen` shows a purchase link — but
-two pieces still need real-world setup before anyone can actually pay for a
-ticket:
+when an event is created, `EventDetailScreen` shows a purchase link, and a
+draft/published/ended status plus discount codes are ready for a checkout
+flow to use — but two pieces still need real-world setup before anyone can
+actually pay for a ticket:
 
 - **Payment**: a real Paystack account (cards + Mobile Money) under the
   organizer's business, with API keys handed over so a server-side function
@@ -120,9 +121,14 @@ ticket:
   trusted from the buyer's browser alone — that's how someone would get a
   free ticket.
 - **The public purchase page itself**: a small web page (flyer, event
-  summary, organizer info, ticket picker, Paystack checkout) hosted via
-  Firebase Hosting, plus a Cloud Function to verify Paystack's webhook and
-  create the ticket. Neither exists yet.
+  summary, organizer info, ticket picker, an optional discount code field,
+  and a form for the buyer's name, contact, and optional email before
+  Paystack checkout) hosted via Firebase Hosting, plus a Cloud Function to
+  verify Paystack's webhook, apply any discount, and create the ticket.
+  Neither exists yet. The buyer's name/contact/email are meant to land on
+  the resulting batch exactly like the host app's manual Generate screen
+  already captures them today, so the PDF report and patron follow-up work
+  the same regardless of how a code was issued.
 
 **USSD** (`*XXX#` style purchase) is a further step beyond that, and isn't
 something any app or Firebase project can provision on its own — it requires
@@ -134,36 +140,91 @@ event record for whenever that's set up.
 ## Setting up an event (host app)
 
 1. Sign up with an email, password, organizer name, contact, and (optional)
-   logo.
-2. **New** → fill in the event: name, description, date/time, venue name,
-   optionally "Use my current location" for a map pin, an optional flyer
-   image, and one or more ticket types each with its own price.
-3. **Share event** opens the native share sheet with a ready-made message
+   logo — see "Organizer profile & payouts" below for the rest of the
+   profile.
+2. **New** → fill in the event: name, description, a **start** date/time and
+   an **end** date/time (the end can't be before the start — the form checks),
+   venue name, optionally "Use my current location" for a map pin, an
+   optional flyer image, and one or more ticket types each with its own
+   price. An event starts as a **draft**.
+3. Every event created after this update carries a **status** —
+   **Draft → Published → Ended** — plus a plain-language **timing badge**
+   computed from its dates: `Today`, `3 days more`, `2 weeks more`,
+   `Ongoing`, `Completed` (once the end date/time has passed, automatically,
+   no action needed), or `Ended` (you stopped it early). A draft event's
+   purchase link doesn't sell anything yet — tap **Publish event** on its
+   page when you're ready to open sales. **End event now** stops sales
+   immediately without waiting for the scheduled end time; already-issued
+   codes keep working for door check-in either way. **Edit event** on the
+   same page changes any of the details from step 2, any time.
+4. **Share event** opens the native share sheet with a ready-made message
    (name, date, venue, description, and the purchase link) — send it
    wherever you'd normally promote the event. The event's page also shows
    its **online purchase link** (copy it directly) and its **door verifier
    event code** — a short code (e.g. `K7RN2QX`) door staff type into the
    Verifier app. Both are generated automatically; there's nothing to
    configure.
-4. **Generate ticket codes** on that page is for walk-ins, complimentary, or
-   guest codes the host issues by hand (a name + ticket type + quantity) —
-   free, and completely separate from whatever codes online purchases
-   eventually create. Every issued code still gets its own QR to copy/share,
-   the same as before.
-5. **Event dashboard** on that page breaks down **paid tickets** (from online
-   purchases, once wired up) and **self-generated tickets** (from step 4),
+5. **Discounts** on the event's page manages percent-off or flat-amount-off
+   codes buyers will enter at checkout once online sales are wired up —
+   see "Discounts" below.
+6. **Generate ticket codes** on that page is for walk-ins, complimentary, or
+   guest codes the host issues by hand (a name, optional contact/email, a
+   ticket type, and quantity) — free, and completely separate from whatever
+   codes online purchases eventually create. Every issued code still gets
+   its own QR to copy/share, the same as before.
+7. **Event dashboard** on that page breaks down **paid tickets** (from online
+   purchases, once wired up) and **self-generated tickets** (from step 6),
    each by ticket type, plus a total-expected/verified/unverified summary —
    all live, updating the instant anything changes anywhere. During
    verification (scan or search, in either app), each match is tagged
    **Paid** or **Self-generated** so door staff can tell at a glance how a
    ticket was obtained.
-6. **Export PDF report** any time for a No. / Name / Code(s) / checked-in
-   breakdown — it reflects live data, including check-ins from every
-   verifier phone, since everything already synced through Firestore.
-7. **Delete event** removes it and everything under it — for everyone,
+8. **Export PDF report** any time for a No. / Name / Contact / Code(s) /
+   checked-in breakdown — the contact column carries whatever phone/email
+   was captured when the code was issued, specifically so organizers can
+   reach their own patrons afterward. It reflects live data, including
+   check-ins from every verifier phone, since everything already synced
+   through Firestore.
+9. **Delete event** removes it and everything under it — for everyone,
    including anyone still holding the purchase link or event code — since
    there's no per-device copy left to fall back on once it's gone from the
    shared backend.
+
+## Organizer profile & payouts
+
+Tap your name at the bottom of the Reservations tab to edit your organizer
+profile: name, contact, logo, and a **payout method** — Mobile Money
+(network + number) or bank (bank name, account name, account number). This
+is where proceeds from paid ticket sales are meant to be sent once online
+payments exist; it's visible to you and to the platform's super-admin (see
+below), nobody else.
+
+## Discounts
+
+From an event's page → **Discounts** → **New discount**: pick a category
+(Early bird / Special sale / Group / Combo / Other — these are just labels
+for your own reference, every discount works the same way underneath), a
+code (or leave it blank to auto-generate one), whether it's a **percentage**
+or a **flat GHS amount** off, and which ticket type(s) it applies to (leave
+none selected to apply it to every type on the event). Buyers will enter this
+code at checkout once the public purchase page exists (see below) to get the
+discount applied. Pause (without deleting) or delete a discount any time —
+changes apply immediately since discounts are read live at checkout.
+
+## Super-admin access
+
+One account — yours — can see every organizer and every event on the
+platform: total events, paid vs. self-generated ticket counts, an estimated
+payout amount per organizer (paid tickets × their price — an estimate, not a
+reconciled Paystack settlement, until online payments are wired up), and each
+organizer's payout details. This is **not** a role you can grant yourself
+from inside either app, on purpose — it's a single `isAdmin: true` field on
+your own `organizers/{uid}` document, toggled by hand in the Firestore
+console (Firestore Database → Data → `organizers` → your document → add
+field `isAdmin` = `true`, boolean). Once set, a "Super admin" row appears at
+the bottom of the Reservations tab. Firestore's rules (`/firestore.rules`)
+check this same field server-side, so it can't be spoofed from a modified
+client.
 
 ## Verifying tickets at the door (verifier app)
 
@@ -207,10 +268,16 @@ after-the-event merge to do.
   "Setting up the Firebase backend" above for why these matter).
 - `host/src/data/` — Firestore-backed data layer (`AuthContext.tsx`,
   `DataContext.tsx`, `queries.ts`, `types.ts`, `joinCode.ts`).
-- `host/src/screens/` — Login, Events list, Create event, Event detail,
-  Generate codes, Output (reservation message + QR), Scan, Reservations.
+- `host/src/screens/` — Login, Profile (organizer + payout), Events list,
+  Create/Edit event (both share `components/EventForm.tsx`), Event detail,
+  Generate codes, Output (reservation message + QR), Scan, Discounts,
+  Admin (super-admin only), Reservations.
 - `host/src/utils/codes.ts` — code generation + reservation-message
-  formatting, unchanged from the original design prototype's logic.
+  formatting, unchanged from the original design prototype's logic, plus
+  `isEventEnded`/date-formatting helpers used across the app.
+- `host/src/utils/eventTiming.ts` — the plain-language timing badge
+  (`Today`, `3 days more`, `Ongoing`, `Completed`, `Ended`, …) shown on
+  event cards and the event detail page.
 - `host/src/utils/links.ts` — builds an event's public purchase URL; update
   `PUBLIC_SITE_BASE_URL` once the purchase site (see "Online ticket sales
   (not wired up yet)") is deployed.

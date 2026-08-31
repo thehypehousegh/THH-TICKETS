@@ -19,7 +19,7 @@ interface AuthContextValue {
   signUp: (email: string, password: string, name: string, contact: string, logoUri?: string | null) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
-  updateOrganizer: (patch: Partial<Pick<OrganizerProfile, 'name' | 'contact' | 'logoUrl'>>) => Promise<void>;
+  updateOrganizer: (patch: Partial<Pick<OrganizerProfile, 'name' | 'contact' | 'logoUrl' | 'payout'>>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -51,6 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       name: name.trim(),
       contact: contact.trim(),
       logoUrl,
+      payout: null,
       createdAt: new Date().toISOString(),
     };
     await setDoc(doc(db, 'organizers', cred.user.uid), profile);

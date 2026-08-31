@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Alert, Share, StyleSheet, Text, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
-import { Copy, FilePdf, QrCode, ShareNetwork, Trash } from 'phosphor-react-native';
+import { Copy, FilePdf, PencilSimple, QrCode, ShareNetwork, Tag as TagIcon, Trash } from 'phosphor-react-native';
 import type { RootScreenProps } from '../navigation/types';
 import { Screen } from '../components/Screen';
 import { Button } from '../components/Button';
@@ -13,7 +13,8 @@ import { Field } from '../components/Field';
 import { CodeMatchCard } from '../components/CodeMatchCard';
 import { useData } from '../data/DataContext';
 import { useToast } from '../components/Toast';
-import { longWhen } from '../utils/codes';
+import { longWhen, longFormatDateTime, isEventEnded } from '../utils/codes';
+import { describeEventTiming } from '../utils/eventTiming';
 import { exportEventTicketsPdf } from '../utils/pdf';
 import { findCodeMatches } from '../utils/verify';
 import { publicEventUrl } from '../utils/links';
@@ -30,10 +31,11 @@ function summarize(codes: { type: string }[]) {
 
 export function EventDetailScreen({ route, navigation }: Props) {
   const { eventId } = route.params;
-  const { getEvent, batchesForEvent, setCodeUsed, deleteEventData } = useData();
+  const { getEvent, batchesForEvent, setCodeUsed, deleteEventData, setEventStatusData } = useData();
   const { flash } = useToast();
   const [exporting, setExporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [statusBusy, setStatusBusy] = useState(false);
   const [verifyQuery, setVerifyQuery] = useState('');
   const [busyCodeId, setBusyCodeId] = useState<string | null>(null);
   const event = getEvent(eventId);
@@ -51,6 +53,10 @@ export function EventDetailScreen({ route, navigation }: Props) {
   const issued = batches.reduce((n, b) => n + b.codes.length, 0);
   const purchaseUrl = publicEventUrl(event.id);
   const stats = computeEventStats(event, batches);
+  const ended = isEventEnded(event);
+  const timingLabel = describeEventTiming(event);
+  const publishLabel = event.status === 'draft' ? 'Draft' : event.status === 'ended' ? 'Ended' : 'Live';
+  const publishVariant = event.status === 'draft' ? 'outline' : event.status === 'ended' ? 'neutral' : 'accent';
 
   const onExport = async () => {
     setExporting(true);
@@ -113,6 +119,43 @@ export function EventDetailScreen({ route, navigation }: Props) {
     );
   };
 
+  const onPublish = async () => {
+    setStatusBusy(true);
+    try {
+      await setEventStatusData(event.id, 'published');
+      flash('Event published — ticket sales are live');
+    } catch {
+      flash('Could not publish event');
+    } finally {
+      setStatusBusy(false);
+    }
+  };
+
+  const onEndLive = () => {
+    Alert.alert(
+      'End this event now?',
+      'This stops new ticket purchases immediately, even though the event’s scheduled end date/time hasn’t passed yet. Codes already issued keep working for door check-in.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'End event',
+          style: 'destructive',
+          onPress: async () => {
+            setStatusBusy(true);
+            try {
+              await setEventStatusData(event.id, 'ended');
+              flash('Event ended');
+            } catch {
+              flash('Could not end event');
+            } finally {
+              setStatusBusy(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const matches = findCodeMatches(batches, verifyQuery).slice(0, 8);
 
   const onToggleCode = async (codeId: string, used: boolean) => {
@@ -128,15 +171,56 @@ export function EventDetailScreen({ route, navigation }: Props) {
   return (
     <Screen>
       <BackButton label="Events" onPress={() => navigation.goBack()} />
-      <View style={styles.abbrBox}>
-        <Text style={styles.abbrText}>{event.abbr}</Text>
+      <View style={styles.topBadges}>
+        <View style={styles.abbrBox}>
+          <Text style={styles.abbrText}>{event.abbr}</Text>
+        </View>
+        <Tag variant={publishVariant}>{publishLabel}</Tag>
+        <Tag variant="outline">{timingLabel}</Tag>
       </View>
       <Text style={styles.name}>{event.name}</Text>
       <View style={{ gap: 3 }}>
-        <Text style={styles.meta}>{longWhen(event)}</Text>
+        <Text style={styles.meta}>Starts {longWhen(event)}</Text>
+        <Text style={styles.meta}>Ends {longFormatDateTime(event.endDate, event.endTime)}</Text>
         <Text style={styles.meta}>{event.venueName}</Text>
       </View>
       {event.description ? <Text style={styles.desc}>{event.description}</Text> : null}
+
+      <View style={styles.actionsRow}>
+        <Button
+          variant="secondary"
+          title="Edit event"
+          onPress={() => navigation.navigate('EditEvent', { eventId: event.id })}
+          icon={<PencilSimple size={15} color={colors.text} />}
+          style={{ flex: 1 }}
+        />
+        <Button
+          variant="secondary"
+          title="Discounts"
+          onPress={() => navigation.navigate('Discounts', { eventId: event.id })}
+          icon={<TagIcon size={15} color={colors.text} />}
+          style={{ flex: 1 }}
+        />
+      </View>
+
+      {event.status === 'draft' ? (
+        <Button
+          variant="primary"
+          size="lg"
+          block
+          title="Publish event (open ticket sales)"
+          onPress={onPublish}
+          loading={statusBusy}
+        />
+      ) : event.status === 'published' && !ended ? (
+        <Button
+          variant="danger"
+          title="End event now"
+          onPress={onEndLive}
+          loading={statusBusy}
+          style={{ alignSelf: 'flex-start' }}
+        />
+      ) : null}
 
       <View style={styles.tagsRow}>
         {event.ticketTypes.map((t) => (
@@ -159,6 +243,13 @@ export function EventDetailScreen({ route, navigation }: Props) {
       <View style={styles.linkCard}>
         <Text style={styles.kicker}>ONLINE PURCHASE LINK</Text>
         <Text style={styles.linkValue}>{purchaseUrl}</Text>
+        {event.status !== 'published' || ended ? (
+          <Text style={styles.hint}>
+            {event.status === 'draft'
+              ? 'Not live yet — publish the event first, or this link won’t sell tickets.'
+              : 'Sales are closed — this event has ended.'}
+          </Text>
+        ) : null}
         <View style={styles.actionsRow}>
           <Button variant="secondary" title="Copy link" onPress={copyLink} icon={<Copy size={15} color={colors.text} />} style={{ flex: 1 }} />
         </View>
@@ -316,6 +407,7 @@ export function EventDetailScreen({ route, navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
+  topBadges: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   abbrBox: {
     alignSelf: 'flex-start',
     borderWidth: 1,

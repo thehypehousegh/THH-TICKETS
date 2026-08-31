@@ -1,6 +1,6 @@
 import React from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
-import { SignOut } from 'phosphor-react-native';
+import { CaretRight, ShieldCheck, SignOut } from 'phosphor-react-native';
 import type { TabScreenProps } from '../navigation/types';
 import { Screen } from '../components/Screen';
 import { Card } from '../components/Card';
@@ -66,15 +66,25 @@ export function ReservationsListScreen({ navigation }: Props) {
       />
 
       <View style={styles.footer}>
-        <Pressable style={styles.accountRow} onPress={signOut}>
+        <Pressable style={styles.accountRow} onPress={() => navigation.navigate('Profile')}>
           <View>
             <Text style={styles.accountName}>{organizer?.name ?? ''}</Text>
             <Text style={styles.accountContact}>{organizer?.contact ?? ''}</Text>
           </View>
-          <View style={styles.signOutBtn}>
-            <SignOut size={16} color="rgba(233,233,237,0.6)" />
-            <Text style={styles.signOutText}>Sign out</Text>
-          </View>
+          <CaretRight size={16} color="rgba(233,233,237,0.4)" />
+        </Pressable>
+        {organizer?.isAdmin ? (
+          <Pressable style={styles.accountRow} onPress={() => navigation.navigate('Admin')}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <ShieldCheck size={16} color={colors.accent} />
+              <Text style={styles.accountName}>Super admin</Text>
+            </View>
+            <CaretRight size={16} color="rgba(233,233,237,0.4)" />
+          </Pressable>
+        ) : null}
+        <Pressable style={styles.accountRow} onPress={signOut}>
+          <Text style={styles.signOutText}>Sign out</Text>
+          <SignOut size={16} color="rgba(233,233,237,0.6)" />
         </Pressable>
       </View>
     </Screen>
@@ -84,7 +94,7 @@ export function ReservationsListScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   screen: { padding: 20, paddingBottom: 0, gap: 14 },
   title: { fontFamily: fonts.heading, fontSize: 24, color: colors.text },
-  list: { paddingBottom: 108, paddingTop: 4 },
+  list: { paddingBottom: 168, paddingTop: 4 },
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   abbr: { fontFamily: fonts.monoBold, fontSize: 10, letterSpacing: 1, color: colors.accent },
   stamp: { fontSize: 10.5, color: 'rgba(233,233,237,0.42)', fontFamily: fonts.body },
@@ -92,7 +102,7 @@ const styles = StyleSheet.create({
   summary: { fontSize: 11.5, color: 'rgba(233,233,237,0.52)', fontFamily: fonts.body },
   firstCode: { fontFamily: fonts.mono, fontSize: 10.5, color: colors.accent2 },
   empty: { fontSize: 13, color: 'rgba(233,233,237,0.5)', fontFamily: fonts.body, paddingTop: 24, textAlign: 'center' },
-  footer: { position: 'absolute', left: 20, right: 20, bottom: 20 },
+  footer: { position: 'absolute', left: 20, right: 20, bottom: 20, gap: 2 },
   accountRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingVertical: 10, paddingHorizontal: 4,

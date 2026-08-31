@@ -5,10 +5,14 @@ import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 export type RootStackParamList = {
   Tabs: undefined;
   CreateEvent: undefined;
+  EditEvent: { eventId: string };
   EventDetail: { eventId: string };
   Generate: { eventId: string };
   Output: { batchId: string };
   Scan: { eventId: string };
+  Discounts: { eventId: string };
+  Profile: undefined;
+  Admin: undefined;
 };
 
 export type TabParamList = {

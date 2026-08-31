@@ -42,10 +42,12 @@ export function buildTicketsHtml(event: EventRecord, batches: BatchRecord[]): st
           return `${escapeHtml(c.code)} <span class="type">(${escapeHtml(c.type)})</span> ${status}`;
         })
         .join('<br/>');
+      const contactLines = [b.contact, b.email].filter(Boolean).map(escapeHtml).join('<br/>');
       return `
         <tr>
           <td class="num">${i + 1}</td>
           <td class="name">${escapeHtml(b.person)}</td>
+          <td class="contact">${contactLines || '—'}</td>
           <td class="codes">${codesCell}</td>
         </tr>`;
     })
@@ -79,7 +81,8 @@ export function buildTicketsHtml(event: EventRecord, batches: BatchRecord[]): st
         }
         td { padding: 9px 10px; font-size: 12.5px; border-bottom: 1px solid #e5e5ea; vertical-align: top; }
         td.num { width: 34px; color: #888; }
-        td.name { width: 28%; font-weight: 600; }
+        td.name { width: 22%; font-weight: 600; }
+        td.contact { width: 20%; font-size: 11px; color: #444; }
         td.codes { font-family: 'Courier New', monospace; font-size: 11.5px; line-height: 1.8; }
         .type { font-family: -apple-system, Helvetica, Arial, sans-serif; color: #666; font-size: 10.5px; }
         .status { font-family: -apple-system, Helvetica, Arial, sans-serif; font-size: 10px; margin-left: 4px; }
@@ -102,10 +105,10 @@ export function buildTicketsHtml(event: EventRecord, batches: BatchRecord[]): st
       </div>
       <table>
         <thead>
-          <tr><th>No.</th><th>Name</th><th>Code(s)</th></tr>
+          <tr><th>No.</th><th>Name</th><th>Contact</th><th>Code(s)</th></tr>
         </thead>
         <tbody>
-          ${rows || '<tr><td colspan="3" style="color:#999;">No codes issued yet for this event.</td></tr>'}
+          ${rows || '<tr><td colspan="4" style="color:#999;">No codes issued yet for this event.</td></tr>'}
         </tbody>
       </table>
       <div class="footer">Generated ${escapeHtml(formatStamp(new Date().toISOString()))}</div>

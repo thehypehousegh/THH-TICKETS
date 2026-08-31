@@ -10,10 +10,13 @@ export interface EventRecord {
   hostUid: string;
   name: string;
   description: string;
-  date: string;
-  time: string;
+  startDate: string;
+  startTime: string;
+  endDate: string;
+  endTime: string;
   venueName: string;
   flyerUrl: string | null;
+  status: 'draft' | 'published' | 'ended';
 }
 
 export interface CodeRecord {
@@ -27,6 +30,8 @@ export interface CodeRecord {
 export interface BatchRecord {
   id: string;
   person: string;
+  contact: string;
+  email: string;
   createdAt: string;
   source: 'manual' | 'online';
   codes: CodeRecord[];

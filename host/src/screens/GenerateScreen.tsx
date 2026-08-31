@@ -22,6 +22,7 @@ export function GenerateScreen({ route, navigation }: Props) {
 
   const [person, setPerson] = useState('');
   const [contact, setContact] = useState('');
+  const [email, setEmail] = useState('');
   const [type, setType] = useState(event?.ticketTypes[0]?.label ?? '');
   const [qty, setQty] = useState(1);
   const [qtys, setQtys] = useState<Record<string, number>>({});
@@ -54,7 +55,7 @@ export function GenerateScreen({ route, navigation }: Props) {
       const selections: TicketSelection[] = event.ticketTypes
         .filter((t) => (qtys[t.label] || 0) > 0)
         .map((t) => ({ typeLabel: t.label, typeCode: t.code, quantity: qtys[t.label] }));
-      const batch = await generateCodes(event.id, person.trim(), contact.trim(), selections);
+      const batch = await generateCodes(event.id, person.trim(), contact.trim(), email.trim(), selections);
       navigation.replace('Output', { batchId: batch.id });
     } finally {
       setGenerating(false);
@@ -70,7 +71,15 @@ export function GenerateScreen({ route, navigation }: Props) {
       </View>
 
       <Field label="Name of person" placeholder="Dr. Harry Okyere" value={person} onChangeText={setPerson} />
-      <Field label="Contact (optional)" placeholder="Phone or email" value={contact} onChangeText={setContact} />
+      <Field label="Contact (optional)" placeholder="Phone number" value={contact} onChangeText={setContact} keyboardType="phone-pad" />
+      <Field
+        label="Email (optional)"
+        placeholder="For sending the code/QR"
+        value={email}
+        onChangeText={setEmail}
+        autoCapitalize="none"
+        keyboardType="email-address"
+      />
 
       <SelectField
         label="Ticket type"

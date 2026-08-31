@@ -10,6 +10,7 @@ import { Divider } from '../components/Divider';
 import { useData } from '../data/DataContext';
 import { useAuth } from '../data/AuthContext';
 import { longWhen, BRAND_PREFIX } from '../utils/codes';
+import { describeEventTiming } from '../utils/eventTiming';
 import { colors, fonts } from '../theme/tokens';
 import type { EventRecord } from '../data/types';
 
@@ -30,6 +31,7 @@ export function EventsListScreen({ navigation }: Props) {
           <View style={styles.abbrBox}>
             <Text style={styles.abbrText}>{item.abbr}</Text>
           </View>
+          <Tag variant="outline">{describeEventTiming(item)}</Tag>
           <Tag variant="neutral">{issued} codes</Tag>
         </View>
         <Text style={styles.name}>{item.name}</Text>

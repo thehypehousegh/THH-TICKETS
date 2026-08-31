@@ -22,29 +22,43 @@ export function digits4(): string {
 
 export interface EventLike {
   name: string;
-  date: string; // YYYY-MM-DD
-  time: string; // HH:MM
+  startDate: string; // YYYY-MM-DD
+  startTime: string; // HH:MM
   abbr: string;
   salt: string;
   thhFirst: boolean;
 }
 
-export function when(e: Pick<EventLike, 'date' | 'time'>, withTime: boolean): string {
-  if (!e.date) return '';
-  const [y, m, d] = e.date.split('-').map(Number);
+export function formatDateTime(date: string, time: string, withTime: boolean): string {
+  if (!date) return '';
+  const [y, m, d] = date.split('-').map(Number);
   const dt = new Date(y, m - 1, d);
   const short = DAYS[dt.getDay()] + ', ' + String(d).padStart(2, '0') + '-' + String(m).padStart(2, '0') + '-' + String(y).slice(2);
-  if (!withTime || !e.time) return short;
-  const [hh, mm] = e.time.split(':').map(Number);
+  if (!withTime || !time) return short;
+  const [hh, mm] = time.split(':').map(Number);
   const h12 = ((hh + 11) % 12) + 1;
   return short + ' at ' + h12 + ':' + String(mm).padStart(2, '0') + (hh < 12 ? 'AM' : 'PM');
 }
 
-export function longWhen(e: Pick<EventLike, 'date' | 'time'>): string {
-  if (!e.date) return '';
-  const [y, m, d] = e.date.split('-').map(Number);
+export function when(e: Pick<EventLike, 'startDate' | 'startTime'>, withTime: boolean): string {
+  return formatDateTime(e.startDate, e.startTime, withTime);
+}
+
+export function longFormatDateTime(date: string, time: string): string {
+  if (!date) return '';
+  const [y, m, d] = date.split('-').map(Number);
   const dow = DAYS[new Date(y, m - 1, d).getDay()];
-  return dow + ' · ' + d + ' ' + MONTHS[m - 1] + ' ' + y + (e.time ? ' · ' + when(e, true).split(' at ')[1] : '');
+  return dow + ' · ' + d + ' ' + MONTHS[m - 1] + ' ' + y + (time ? ' · ' + formatDateTime(date, time, true).split(' at ')[1] : '');
+}
+
+export function longWhen(e: Pick<EventLike, 'startDate' | 'startTime'>): string {
+  return longFormatDateTime(e.startDate, e.startTime);
+}
+
+export function isEventEnded(e: { endDate: string; endTime: string }): boolean {
+  if (!e.endDate) return false;
+  const end = new Date(`${e.endDate}T${e.endTime || '23:59'}:00`);
+  return Date.now() > end.getTime();
 }
 
 export function makeCode(e: EventLike, typeCode: string): string {

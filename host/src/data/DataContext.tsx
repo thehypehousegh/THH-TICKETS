@@ -7,10 +7,12 @@ import {
   deleteEvent as deleteEventQuery,
   generateCodes as generateCodesQuery,
   setCodeUsed as setCodeUsedQuery,
+  setEventStatus as setEventStatusQuery,
+  updateEvent as updateEventQuery,
   watchEventBatches,
   watchHostEvents,
 } from './queries';
-import type { BatchRecord, EventRecord, NewEventInput, TicketSelection } from './types';
+import type { BatchRecord, EventRecord, EventStatus, NewEventInput, TicketSelection } from './types';
 
 interface DataContextValue {
   loading: boolean;
@@ -20,7 +22,9 @@ interface DataContextValue {
   getBatch: (id: string) => BatchRecord | undefined;
   batchesForEvent: (eventId: string) => BatchRecord[];
   createEvent: (input: NewEventInput) => Promise<EventRecord>;
-  generateCodes: (eventId: string, person: string, contact: string, selections: TicketSelection[]) => Promise<BatchRecord>;
+  updateEventData: (eventId: string, input: NewEventInput) => Promise<void>;
+  setEventStatusData: (eventId: string, status: EventStatus) => Promise<void>;
+  generateCodes: (eventId: string, person: string, contact: string, email: string, selections: TicketSelection[]) => Promise<BatchRecord>;
   setCodeUsed: (eventId: string, codeId: string, used: boolean) => Promise<void>;
   deleteCodeData: (eventId: string, batchId: string, codeId: string) => Promise<void>;
   deleteEventData: (eventId: string) => Promise<void>;
@@ -93,10 +97,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     return createEventQuery(user.uid, input);
   };
 
-  const generateCodes = async (eventId: string, person: string, contact: string, selections: TicketSelection[]) => {
+  const updateEventData = async (eventId: string, input: NewEventInput) => {
+    await updateEventQuery(eventId, input);
+  };
+
+  const setEventStatusData = async (eventId: string, status: EventStatus) => {
+    await setEventStatusQuery(eventId, status);
+  };
+
+  const generateCodes = async (eventId: string, person: string, contact: string, email: string, selections: TicketSelection[]) => {
     const event = getEvent(eventId);
     if (!event) throw new Error('Event not found');
-    return generateCodesQuery(event, person, contact, selections);
+    return generateCodesQuery(event, person, contact, email, selections);
   };
 
   const setCodeUsed = async (eventId: string, codeId: string, used: boolean) => {
@@ -119,6 +131,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     getBatch,
     batchesForEvent,
     createEvent,
+    updateEventData,
+    setEventStatusData,
     generateCodes,
     setCodeUsed,
     deleteCodeData,
