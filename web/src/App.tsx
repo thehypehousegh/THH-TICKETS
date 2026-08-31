@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
 import { AuthProvider } from './data/AuthContext';
 import { ThemeProvider } from './data/ThemeContext';
 import { RequireAuth } from './components/RequireAuth';
@@ -17,6 +17,7 @@ import { Verify } from './pages/Verify';
 import { Admin } from './pages/Admin';
 import { Profile } from './pages/Profile';
 import { Support } from './pages/Support';
+import { Privacy } from './pages/Privacy';
 
 export default function App() {
   return (
@@ -39,7 +40,11 @@ export default function App() {
               <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
               <Route path="/support" element={<RequireAuth><Support /></RequireAuth>} />
               <Route path="/admin" element={<RequireAuth><Admin /></RequireAuth>} />
+              <Route path="/privacy" element={<Privacy />} />
             </Routes>
+            <footer className="mx-auto max-w-6xl px-4 py-6 text-center text-xs text-text-dim">
+              <Link to="/privacy" className="hover:text-text hover:underline">Privacy policy</Link>
+            </footer>
             <ChatWidget />
           </BrowserRouter>
         </AuthProvider>
