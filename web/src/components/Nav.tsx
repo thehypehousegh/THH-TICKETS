@@ -1,5 +1,6 @@
 import { Link, NavLink } from 'react-router-dom';
 import { useAuth } from '../data/AuthContext';
+import { ThemeToggle } from './ThemeToggle';
 
 export function Nav() {
   const { user, organizer, signOut } = useAuth();
@@ -47,6 +48,7 @@ export function Nav() {
               </Link>
             </>
           )}
+          <ThemeToggle />
         </nav>
       </div>
     </header>

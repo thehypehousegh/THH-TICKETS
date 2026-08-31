@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './data/AuthContext';
+import { ThemeProvider } from './data/ThemeContext';
 import { RequireAuth } from './components/RequireAuth';
 import { Nav } from './components/Nav';
 import { ChatWidget } from './components/ChatWidget';
@@ -20,27 +21,29 @@ import { Support } from './pages/Support';
 export default function App() {
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        <BrowserRouter>
-          <Nav />
-          <VerifyEmailBanner />
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/e/:eventId" element={<EventDetail />} />
-            <Route path="/verify" element={<Verify />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<Signup />} />
-            <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
-            <Route path="/dashboard/new" element={<RequireAuth><EventForm /></RequireAuth>} />
-            <Route path="/dashboard/events/:eventId" element={<RequireAuth><EventManage /></RequireAuth>} />
-            <Route path="/dashboard/events/:eventId/edit" element={<RequireAuth><EventForm /></RequireAuth>} />
-            <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
-            <Route path="/support" element={<RequireAuth><Support /></RequireAuth>} />
-            <Route path="/admin" element={<RequireAuth><Admin /></RequireAuth>} />
-          </Routes>
-          <ChatWidget />
-        </BrowserRouter>
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <BrowserRouter>
+            <Nav />
+            <VerifyEmailBanner />
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/e/:eventId" element={<EventDetail />} />
+              <Route path="/verify" element={<Verify />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<Signup />} />
+              <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
+              <Route path="/dashboard/new" element={<RequireAuth><EventForm /></RequireAuth>} />
+              <Route path="/dashboard/events/:eventId" element={<RequireAuth><EventManage /></RequireAuth>} />
+              <Route path="/dashboard/events/:eventId/edit" element={<RequireAuth><EventForm /></RequireAuth>} />
+              <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
+              <Route path="/support" element={<RequireAuth><Support /></RequireAuth>} />
+              <Route path="/admin" element={<RequireAuth><Admin /></RequireAuth>} />
+            </Routes>
+            <ChatWidget />
+          </BrowserRouter>
+        </AuthProvider>
+      </ThemeProvider>
     </ErrorBoundary>
   );
 }
