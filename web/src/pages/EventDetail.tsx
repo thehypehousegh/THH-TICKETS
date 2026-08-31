@@ -1,16 +1,28 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { getEvent, findDiscountByCode, submitPurchaseRequest, verifyPaystackPayment, type PaidOrder } from '../data/queries';
+import { getEvent, getOrganizer, findDiscountByCode, submitPurchaseRequest, verifyPaystackPayment, type PaidOrder } from '../data/queries';
 import { describeEventTiming } from '../utils/eventTiming';
 import { longWhen } from '../utils/codes';
 import { PAYSTACK_PUBLIC_KEY, payWithPaystack, generatePaystackReference } from '../paystack';
 import { Button, Card, Field, Input } from '../components/ui';
-import type { DiscountRecord, EventRecord, PurchaseRequestItem } from '../data/types';
+import type { DiscountRecord, EventRecord, OrganizerProfile, PurchaseRequestItem } from '../data/types';
+
+function venueMapEmbedUrl(pin: { lat: number; lng: number }): string {
+  const d = 0.01;
+  const bbox = [pin.lng - d, pin.lat - d, pin.lng + d, pin.lat + d].join('%2C');
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${pin.lat}%2C${pin.lng}`;
+}
+
+function venueDirectionsUrl(pin: { lat: number; lng: number }): string {
+  return `https://www.google.com/maps/search/?api=1&query=${pin.lat}%2C${pin.lng}`;
+}
 
 export function EventDetail() {
   const { eventId } = useParams<{ eventId: string }>();
   const [event, setEvent] = useState<EventRecord | null>(null);
   const [loading, setLoading] = useState(true);
+  const [organizer, setOrganizer] = useState<OrganizerProfile | null>(null);
+  const [showMore, setShowMore] = useState(false);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [buyerName, setBuyerName] = useState('');
   const [buyerContact, setBuyerContact] = useState('');
@@ -28,7 +40,10 @@ export function EventDetail() {
   useEffect(() => {
     if (!eventId) return;
     getEvent(eventId)
-      .then(setEvent)
+      .then((e) => {
+        setEvent(e);
+        if (e) getOrganizer(e.hostUid).then(setOrganizer).catch(() => setOrganizer(null));
+      })
       .finally(() => setLoading(false));
   }, [eventId]);
 
@@ -106,13 +121,62 @@ export function EventDetail() {
       <div className="mb-6 overflow-hidden rounded-xl border border-divider bg-surface">
         {event.flyerUrl && <img src={event.flyerUrl} alt={event.name} className="max-h-[420px] w-full object-cover" />}
         <div className="p-5">
-          <h1 className="text-2xl font-semibold text-text">{event.name}</h1>
-          <p className="mt-1 text-text-dim">{longWhen(event)} · {timing}</p>
-          <p className="text-text-dim">{event.venueName}</p>
-          {event.ussdShortCode && (
-            <p className="mt-2 font-mono text-sm text-accent2">Dial {event.ussdShortCode} to buy via USSD</p>
-          )}
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-semibold text-text">{event.name}</h1>
+              <p className="mt-1 text-text-dim">{longWhen(event)} · {timing}</p>
+              <p className="text-text-dim">{event.venueName}</p>
+              {event.ussdShortCode && (
+                <p className="mt-2 font-mono text-sm text-accent2">Dial {event.ussdShortCode} to buy via USSD</p>
+              )}
+            </div>
+            {(organizer || event.venuePin) && (
+              <Button variant="secondary" className="shrink-0" onClick={() => setShowMore((v) => !v)}>
+                {showMore ? 'Hide details' : 'View more details'}
+              </Button>
+            )}
+          </div>
           {event.description && <p className="mt-4 whitespace-pre-line text-sm text-text">{event.description}</p>}
+
+          {showMore && (
+            <div className="mt-4 flex flex-col gap-4 border-t border-divider pt-4 sm:flex-row">
+              {organizer && (
+                <div className="flex flex-1 items-center gap-3 rounded-lg border border-divider bg-surface-hi p-3">
+                  {organizer.logoUrl ? (
+                    <img src={organizer.logoUrl} alt={organizer.name} className="h-12 w-12 rounded-full object-cover" />
+                  ) : (
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent/20 text-sm font-semibold text-accent2">
+                      {organizer.name.slice(0, 2).toUpperCase()}
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-xs text-text-dim">Organized by</p>
+                    <p className="font-medium text-text">{organizer.name}</p>
+                    <p className="text-xs text-text-dim">{organizer.contact}</p>
+                  </div>
+                </div>
+              )}
+              {event.venuePin && (
+                <div className="flex-1 overflow-hidden rounded-lg border border-divider">
+                  <iframe
+                    title="Venue location"
+                    src={venueMapEmbedUrl(event.venuePin)}
+                    className="h-40 w-full"
+                    style={{ border: 0 }}
+                    loading="lazy"
+                  />
+                  <a
+                    href={venueDirectionsUrl(event.venuePin)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block bg-surface-hi px-3 py-2 text-center text-xs font-medium text-accent2 hover:underline"
+                  >
+                    Get directions
+                  </a>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
