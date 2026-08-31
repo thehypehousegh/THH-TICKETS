@@ -7,7 +7,9 @@ import { Card } from '../components/Card';
 import { Divider } from '../components/Divider';
 import { useData } from '../data/DataContext';
 import { useAuth } from '../data/AuthContext';
-import { colors, fonts } from '../theme/tokens';
+import { fonts, withAlpha, type ThemeColors } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import type { BatchRecord } from '../data/types';
 
 type Props = TabScreenProps<'Reservations'>;
@@ -32,6 +34,8 @@ function formatStamp(iso: string) {
 }
 
 export function ReservationsListScreen({ navigation }: Props) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { batches, getEvent } = useData();
   const { organizer, signOut } = useAuth();
 
@@ -71,7 +75,7 @@ export function ReservationsListScreen({ navigation }: Props) {
             <Text style={styles.accountName}>{organizer?.name ?? ''}</Text>
             <Text style={styles.accountContact}>{organizer?.contact ?? ''}</Text>
           </View>
-          <CaretRight size={16} color="rgba(233,233,237,0.4)" />
+          <CaretRight size={16} color={withAlpha(colors.text, 40)} />
         </Pressable>
         {organizer?.isAdmin ? (
           <Pressable style={styles.accountRow} onPress={() => navigation.navigate('Admin')}>
@@ -79,36 +83,38 @@ export function ReservationsListScreen({ navigation }: Props) {
               <ShieldCheck size={16} color={colors.accent} />
               <Text style={styles.accountName}>Super admin</Text>
             </View>
-            <CaretRight size={16} color="rgba(233,233,237,0.4)" />
+            <CaretRight size={16} color={withAlpha(colors.text, 40)} />
           </Pressable>
         ) : null}
         <Pressable style={styles.accountRow} onPress={signOut}>
           <Text style={styles.signOutText}>Sign out</Text>
-          <SignOut size={16} color="rgba(233,233,237,0.6)" />
+          <SignOut size={16} color={withAlpha(colors.text, 60)} />
         </Pressable>
       </View>
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { padding: 20, paddingBottom: 0, gap: 14 },
-  title: { fontFamily: fonts.heading, fontSize: 24, color: colors.text },
-  list: { paddingBottom: 168, paddingTop: 4 },
-  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  abbr: { fontFamily: fonts.monoBold, fontSize: 10, letterSpacing: 1, color: colors.accent },
-  stamp: { fontSize: 10.5, color: 'rgba(233,233,237,0.42)', fontFamily: fonts.body },
-  person: { fontFamily: fonts.heading, fontSize: 15, color: colors.text },
-  summary: { fontSize: 11.5, color: 'rgba(233,233,237,0.52)', fontFamily: fonts.body },
-  firstCode: { fontFamily: fonts.mono, fontSize: 10.5, color: colors.accent2 },
-  empty: { fontSize: 13, color: 'rgba(233,233,237,0.5)', fontFamily: fonts.body, paddingTop: 24, textAlign: 'center' },
-  footer: { position: 'absolute', left: 20, right: 20, bottom: 20, gap: 2 },
-  accountRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingVertical: 10, paddingHorizontal: 4,
-  },
-  accountName: { fontSize: 13, color: colors.text, fontFamily: fonts.bodyMedium },
-  accountContact: { fontSize: 11.5, color: 'rgba(233,233,237,0.5)', fontFamily: fonts.body },
-  signOutBtn: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  signOutText: { fontSize: 12, color: 'rgba(233,233,237,0.6)', fontFamily: fonts.bodyMedium },
-});
+function makeStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    screen: { padding: 20, paddingBottom: 0, gap: 14 },
+    title: { fontFamily: fonts.heading, fontSize: 24, color: colors.text },
+    list: { paddingBottom: 168, paddingTop: 4 },
+    topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    abbr: { fontFamily: fonts.monoBold, fontSize: 10, letterSpacing: 1, color: colors.accent },
+    stamp: { fontSize: 10.5, color: withAlpha(colors.text, 42), fontFamily: fonts.body },
+    person: { fontFamily: fonts.heading, fontSize: 15, color: colors.text },
+    summary: { fontSize: 11.5, color: withAlpha(colors.text, 52), fontFamily: fonts.body },
+    firstCode: { fontFamily: fonts.mono, fontSize: 10.5, color: colors.accent2 },
+    empty: { fontSize: 13, color: withAlpha(colors.text, 50), fontFamily: fonts.body, paddingTop: 24, textAlign: 'center' },
+    footer: { position: 'absolute', left: 20, right: 20, bottom: 20, gap: 2 },
+    accountRow: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingVertical: 10, paddingHorizontal: 4,
+    },
+    accountName: { fontSize: 13, color: colors.text, fontFamily: fonts.bodyMedium },
+    accountContact: { fontSize: 11.5, color: withAlpha(colors.text, 50), fontFamily: fonts.body },
+    signOutBtn: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    signOutText: { fontSize: 12, color: withAlpha(colors.text, 60), fontFamily: fonts.bodyMedium },
+  });
+}

@@ -14,7 +14,9 @@ import { useData } from '../data/DataContext';
 import { useToast } from '../components/Toast';
 import { reservationMessage, when } from '../utils/codes';
 import { saveQrToPhotos, shareAllQrAsZip } from '../utils/qrExport';
-import { colors, fonts } from '../theme/tokens';
+import { fonts, withAlpha, type ThemeColors } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
+import { useThemedStyles } from '../theme/useThemedStyles';
 
 type QrRef = { toDataURL: (cb: (base64: string) => void) => void };
 
@@ -34,6 +36,8 @@ function formatStamp(iso: string) {
 }
 
 export function OutputScreen({ route, navigation }: Props) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { batchId } = route.params;
   const { getBatch, getEvent, deleteCodeData } = useData();
   const { flash } = useToast();
@@ -159,7 +163,7 @@ export function OutputScreen({ route, navigation }: Props) {
                 disabled={deletingId === c.id}
                 hitSlop={8}
               >
-                <Trash size={19} color="#e0705a" />
+                <Trash size={19} color={colors.danger} />
               </Pressable>
             </View>
           ))}
@@ -256,33 +260,35 @@ export function OutputScreen({ route, navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  hiddenQrLayer: { position: 'absolute', top: -10000, left: -10000 },
-  topRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  stamp: { fontSize: 11, color: 'rgba(233,233,237,0.45)', fontFamily: fonts.body },
-  card: {
-    borderRadius: 14,
-    padding: 18,
-    paddingTop: 20,
-    backgroundColor: colors.surface,
-    gap: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(145,132,217,0.45)',
-    overflow: 'hidden',
-  },
-  cardAccentBar: { position: 'absolute', top: 0, left: 0, right: 0, height: 2, backgroundColor: colors.accent },
-  eventName: { fontFamily: fonts.heading, fontSize: 17, color: colors.text, textTransform: 'uppercase' },
-  cardLabel: { fontSize: 12.5, color: 'rgba(233,233,237,0.62)', fontFamily: fonts.body },
-  lineRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  lineWrap: { flex: 1, gap: 2, paddingLeft: 10, borderLeftWidth: 2, borderLeftColor: 'rgba(145,132,217,0.6)' },
-  qrBtn: { padding: 4 },
-  code: { fontFamily: fonts.monoMedium, fontSize: 14, color: colors.text },
-  lineMeta: { fontSize: 12, color: 'rgba(233,233,237,0.66)', fontFamily: fonts.body },
-  forLine: { fontSize: 13, color: colors.text, fontFamily: fonts.body },
-  forName: { fontFamily: fonts.bodyMedium },
-  signoff: { fontSize: 12.5, lineHeight: 17, color: 'rgba(233,233,237,0.74)', fontFamily: fonts.body },
-  actionsRow: { flexDirection: 'row', gap: 10 },
-  copyPreview: { backgroundColor: colors.surface, borderRadius: 8, padding: 12 },
-  copyLabel: { fontFamily: fonts.headingSemibold, fontSize: 10, letterSpacing: 1.6, color: 'rgba(233,233,237,0.55)', marginBottom: 8 },
-  copyText: { fontFamily: fonts.mono, fontSize: 11, lineHeight: 17, color: 'rgba(233,233,237,0.62)' },
-});
+function makeStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    hiddenQrLayer: { position: 'absolute', top: -10000, left: -10000 },
+    topRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    stamp: { fontSize: 11, color: withAlpha(colors.text, 45), fontFamily: fonts.body },
+    card: {
+      borderRadius: 14,
+      padding: 18,
+      paddingTop: 20,
+      backgroundColor: colors.surface,
+      gap: 14,
+      borderWidth: 1,
+      borderColor: withAlpha(colors.accent, 45),
+      overflow: 'hidden',
+    },
+    cardAccentBar: { position: 'absolute', top: 0, left: 0, right: 0, height: 2, backgroundColor: colors.accent },
+    eventName: { fontFamily: fonts.heading, fontSize: 17, color: colors.text, textTransform: 'uppercase' },
+    cardLabel: { fontSize: 12.5, color: withAlpha(colors.text, 62), fontFamily: fonts.body },
+    lineRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    lineWrap: { flex: 1, gap: 2, paddingLeft: 10, borderLeftWidth: 2, borderLeftColor: withAlpha(colors.accent, 60) },
+    qrBtn: { padding: 4 },
+    code: { fontFamily: fonts.monoMedium, fontSize: 14, color: colors.text },
+    lineMeta: { fontSize: 12, color: withAlpha(colors.text, 66), fontFamily: fonts.body },
+    forLine: { fontSize: 13, color: colors.text, fontFamily: fonts.body },
+    forName: { fontFamily: fonts.bodyMedium },
+    signoff: { fontSize: 12.5, lineHeight: 17, color: withAlpha(colors.text, 74), fontFamily: fonts.body },
+    actionsRow: { flexDirection: 'row', gap: 10 },
+    copyPreview: { backgroundColor: colors.surface, borderRadius: 8, padding: 12 },
+    copyLabel: { fontFamily: fonts.headingSemibold, fontSize: 10, letterSpacing: 1.6, color: withAlpha(colors.text, 55), marginBottom: 8 },
+    copyText: { fontFamily: fonts.mono, fontSize: 11, lineHeight: 17, color: withAlpha(colors.text, 62) },
+  });
+}

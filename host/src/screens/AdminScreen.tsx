@@ -12,7 +12,9 @@ import { useAuth } from '../data/AuthContext';
 import { fetchAllEvents, fetchAllOrganizers, fetchEventBatchesOnce } from '../data/queries';
 import { computeEventStats } from '../utils/stats';
 import { describeEventTiming } from '../utils/eventTiming';
-import { colors, fonts } from '../theme/tokens';
+import { fonts, withAlpha, type ThemeColors } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import type { EventRecord, OrganizerProfile } from '../data/types';
 
 type Props = RootScreenProps<'Admin'>;
@@ -32,6 +34,8 @@ function formatPayout(o: OrganizerProfile): string {
 }
 
 export function AdminScreen({ navigation }: Props) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { organizer } = useAuth();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -144,14 +148,16 @@ export function AdminScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  title: { fontFamily: fonts.heading, fontSize: 24, color: colors.text },
-  hint: { fontSize: 12, lineHeight: 17, color: 'rgba(233,233,237,0.5)', fontFamily: fonts.body },
-  orgTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  orgName: { fontFamily: fonts.heading, fontSize: 16, color: colors.text },
-  orgMeta: { fontSize: 12, color: 'rgba(233,233,237,0.6)', fontFamily: fonts.body },
-  eventRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  eventName: { flex: 1, fontSize: 12.5, color: colors.text, fontFamily: fonts.bodyMedium },
-  empty: { fontSize: 12, color: 'rgba(233,233,237,0.42)', fontFamily: fonts.body, textAlign: 'center', marginTop: 20 },
-});
+function makeStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    title: { fontFamily: fonts.heading, fontSize: 24, color: colors.text },
+    hint: { fontSize: 12, lineHeight: 17, color: withAlpha(colors.text, 50), fontFamily: fonts.body },
+    orgTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    orgName: { fontFamily: fonts.heading, fontSize: 16, color: colors.text },
+    orgMeta: { fontSize: 12, color: withAlpha(colors.text, 60), fontFamily: fonts.body },
+    eventRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+    eventName: { flex: 1, fontSize: 12.5, color: colors.text, fontFamily: fonts.bodyMedium },
+    empty: { fontSize: 12, color: withAlpha(colors.text, 42), fontFamily: fonts.body, textAlign: 'center', marginTop: 20 },
+  });
+}

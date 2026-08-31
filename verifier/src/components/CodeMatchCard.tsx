@@ -1,7 +1,8 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Button } from './Button';
-import { colors, radius } from '../theme/tokens';
+import { radius, withAlpha, type ThemeColors } from '../theme/tokens';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import type { CodeMatch } from '../data/types';
 
 function formatTime(iso: string) {
@@ -24,6 +25,7 @@ export function CodeMatchCard({
   onCheckIn: () => void;
   onUndo: () => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
   const { batch, code } = match;
   const used = !!code.usedAt;
   return (
@@ -48,26 +50,28 @@ export function CodeMatchCard({
   );
 }
 
-const styles = StyleSheet.create({
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: 16,
-    gap: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(145,132,217,0.45)',
-  },
-  cardUsed: { borderColor: 'rgba(224,176,80,0.55)' },
-  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  sourceBadge: {
-    paddingHorizontal: 10, paddingVertical: 3, borderRadius: 6,
-    borderWidth: 1, borderColor: colors.accent, backgroundColor: 'transparent',
-  },
-  sourceBadgePaid: { borderColor: 'transparent', backgroundColor: 'rgba(145,132,217,0.35)' },
-  sourceBadgeText: { fontSize: 11, color: colors.accent2 },
-  code: { fontFamily: 'monospace', fontSize: 15, color: colors.text },
-  person: { fontSize: 17, fontWeight: '600', color: colors.text, marginTop: 4 },
-  type: { fontSize: 12.5, color: 'rgba(233,233,237,0.62)' },
-  statusValid: { fontSize: 12.5, color: colors.accent, fontWeight: '600', marginBottom: 6 },
-  statusUsed: { fontSize: 12.5, color: colors.warn, fontWeight: '600', marginBottom: 6 },
-});
+function makeStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    card: {
+      backgroundColor: colors.surface,
+      borderRadius: radius.lg,
+      padding: 16,
+      gap: 6,
+      borderWidth: 1,
+      borderColor: withAlpha(colors.accent, 45),
+    },
+    cardUsed: { borderColor: withAlpha(colors.warn, 55) },
+    topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    sourceBadge: {
+      paddingHorizontal: 10, paddingVertical: 3, borderRadius: 6,
+      borderWidth: 1, borderColor: colors.accent, backgroundColor: 'transparent',
+    },
+    sourceBadgePaid: { borderColor: 'transparent', backgroundColor: withAlpha(colors.accent, 35) },
+    sourceBadgeText: { fontSize: 11, color: colors.accent2 },
+    code: { fontFamily: 'monospace', fontSize: 15, color: colors.text },
+    person: { fontSize: 17, fontWeight: '600', color: colors.text, marginTop: 4 },
+    type: { fontSize: 12.5, color: withAlpha(colors.text, 62) },
+    statusValid: { fontSize: 12.5, color: colors.accent, fontWeight: '600', marginBottom: 6 },
+    statusUsed: { fontSize: 12.5, color: colors.warn, fontWeight: '600', marginBottom: 6 },
+  });
+}

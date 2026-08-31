@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { Animated, StyleSheet, Text } from 'react-native';
-import { colors, fonts } from '../theme/tokens';
+import { fonts, withAlpha, type ThemeColors } from '../theme/tokens';
+import { useThemedStyles } from '../theme/useThemedStyles';
 
 interface ToastContextValue {
   flash: (message: string) => void;
@@ -9,6 +10,7 @@ interface ToastContextValue {
 const ToastContext = createContext<ToastContextValue | null>(null);
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
+  const styles = useThemedStyles(makeStyles);
   const [message, setMessage] = useState('');
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const opacity = useRef(new Animated.Value(0)).current;
@@ -42,19 +44,21 @@ export function useToast(): ToastContextValue {
   return ctx;
 }
 
-const styles = StyleSheet.create({
-  toast: {
-    position: 'absolute',
-    left: 20,
-    right: 20,
-    bottom: 100,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 8,
-    backgroundColor: 'rgba(145,132,217,0.22)',
-    borderWidth: 1,
-    borderColor: colors.accent,
-    zIndex: 50,
-  },
-  text: { color: colors.text, fontSize: 13, textAlign: 'center', fontFamily: fonts.body },
-});
+function makeStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    toast: {
+      position: 'absolute',
+      left: 20,
+      right: 20,
+      bottom: 100,
+      paddingVertical: 12,
+      paddingHorizontal: 14,
+      borderRadius: 8,
+      backgroundColor: withAlpha(colors.accent, 22),
+      borderWidth: 1,
+      borderColor: colors.accent,
+      zIndex: 50,
+    },
+    text: { color: colors.text, fontSize: 13, textAlign: 'center', fontFamily: fonts.body },
+  });
+}

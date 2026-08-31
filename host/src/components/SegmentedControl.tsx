@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, fonts, radius } from '../theme/tokens';
+import { fonts, radius, withAlpha, type ThemeColors } from '../theme/tokens';
+import { useThemedStyles } from '../theme/useThemedStyles';
 
 export function SegmentedControl({
   options,
@@ -11,6 +12,7 @@ export function SegmentedControl({
   value: string;
   onChange: (value: string) => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.seg}>
       {options.map((opt, i) => {
@@ -33,23 +35,25 @@ export function SegmentedControl({
   );
 }
 
-const styles = StyleSheet.create({
-  seg: {
-    flexDirection: 'row',
-    borderWidth: 1,
-    borderColor: colors.divider,
-    borderRadius: radius.md,
-    overflow: 'hidden',
-    width: '100%',
-  },
-  opt: {
-    flex: 1,
-    minHeight: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  optBorder: { borderLeftWidth: 1, borderLeftColor: colors.divider },
-  optActive: { backgroundColor: 'rgba(145,132,217,0.12)' },
-  text: { fontSize: 13, color: colors.text, fontFamily: fonts.body },
-  textActive: { color: colors.accent, fontFamily: fonts.bodyMedium },
-});
+function makeStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    seg: {
+      flexDirection: 'row',
+      borderWidth: 1,
+      borderColor: colors.divider,
+      borderRadius: radius.md,
+      overflow: 'hidden',
+      width: '100%',
+    },
+    opt: {
+      flex: 1,
+      minHeight: 44,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    optBorder: { borderLeftWidth: 1, borderLeftColor: colors.divider },
+    optActive: { backgroundColor: withAlpha(colors.accent, 12) },
+    text: { fontSize: 13, color: colors.text, fontFamily: fonts.body },
+    textActive: { color: colors.accent, fontFamily: fonts.bodyMedium },
+  });
+}

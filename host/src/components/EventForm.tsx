@@ -15,7 +15,9 @@ import { useAuth } from '../data/AuthContext';
 import { useToast } from './Toast';
 import { uploadImage } from '../firebase/upload';
 import { abbrFromName, BRAND_PREFIX, salt as makeSalt, SALT_LENGTH } from '../utils/codes';
-import { colors, fonts } from '../theme/tokens';
+import { fonts, withAlpha, type ThemeColors } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import type { EventRecord, NewEventInput, VenuePin } from '../data/types';
 
 interface TypeDraft {
@@ -46,6 +48,8 @@ function draftsFromEvent(event?: EventRecord): TypeDraft[] {
 }
 
 export function EventForm({ title, submitLabel, existingEvent, onBack, onSubmit }: Props) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { user } = useAuth();
   const { flash } = useToast();
   const [name, setName] = useState(existingEvent?.name ?? '');
@@ -288,16 +292,18 @@ export function EventForm({ title, submitLabel, existingEvent, onBack, onSubmit 
   );
 }
 
-const styles = StyleSheet.create({
-  title: { fontFamily: fonts.heading, fontSize: 24, color: colors.text },
-  row: { flexDirection: 'row', gap: 10 },
-  label: { fontSize: 12, color: 'rgba(233,233,237,0.7)', fontFamily: fonts.body },
-  flyerPreview: { width: '100%', aspectRatio: 3 / 4, borderRadius: 10, backgroundColor: colors.surface },
-  previewCard: { backgroundColor: colors.surface, borderRadius: 8, padding: 12, gap: 6 },
-  kicker: { fontFamily: fonts.headingSemibold, fontSize: 10, letterSpacing: 1.8, color: colors.accent },
-  previewCode: { fontFamily: fonts.monoMedium, fontSize: 14, color: colors.text },
-  previewHint: { fontSize: 11, color: 'rgba(233,233,237,0.5)', fontFamily: fonts.body },
-  sectionLabel: { fontFamily: fonts.headingSemibold, fontSize: 10, letterSpacing: 1.8, color: 'rgba(233,233,237,0.6)' },
-  typeRow: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
-  errorText: { fontSize: 12, color: '#e0705a', fontFamily: fonts.body },
-});
+function makeStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    title: { fontFamily: fonts.heading, fontSize: 24, color: colors.text },
+    row: { flexDirection: 'row', gap: 10 },
+    label: { fontSize: 12, color: withAlpha(colors.text, 70), fontFamily: fonts.body },
+    flyerPreview: { width: '100%', aspectRatio: 3 / 4, borderRadius: 10, backgroundColor: colors.surface },
+    previewCard: { backgroundColor: colors.surface, borderRadius: 8, padding: 12, gap: 6 },
+    kicker: { fontFamily: fonts.headingSemibold, fontSize: 10, letterSpacing: 1.8, color: colors.accent },
+    previewCode: { fontFamily: fonts.monoMedium, fontSize: 14, color: colors.text },
+    previewHint: { fontSize: 11, color: withAlpha(colors.text, 50), fontFamily: fonts.body },
+    sectionLabel: { fontFamily: fonts.headingSemibold, fontSize: 10, letterSpacing: 1.8, color: withAlpha(colors.text, 60) },
+    typeRow: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
+    errorText: { fontSize: 12, color: colors.danger, fontFamily: fonts.body },
+  });
+}

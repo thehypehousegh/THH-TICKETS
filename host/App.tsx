@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
@@ -15,14 +15,10 @@ import { ToastProvider } from './src/components/Toast';
 import { PermissionsGate } from './src/components/PermissionsGate';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { RootNavigator } from './src/navigation/RootNavigator';
-import { colors } from './src/theme/tokens';
-
-const navTheme = {
-  ...DefaultTheme,
-  colors: { ...DefaultTheme.colors, background: colors.bg, card: colors.bg, text: colors.text, border: colors.divider },
-};
+import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
 
 function Loading() {
+  const { colors } = useTheme();
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg }}>
       <ActivityIndicator color={colors.accent} />
@@ -37,7 +33,8 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-export default function App() {
+function AppInner() {
+  const { theme, colors } = useTheme();
   const [fontsLoaded] = useFonts({
     Inter_400Regular,
     Inter_500Medium,
@@ -47,6 +44,15 @@ export default function App() {
     JetBrainsMono_700Bold,
   });
 
+  const navTheme = useMemo(
+    () => ({
+      ...DefaultTheme,
+      dark: theme === 'dark',
+      colors: { ...DefaultTheme.colors, background: colors.bg, card: colors.bg, text: colors.text, border: colors.divider },
+    }),
+    [theme, colors]
+  );
+
   if (!fontsLoaded) return <Loading />;
 
   return (
@@ -54,7 +60,7 @@ export default function App() {
       <AuthProvider>
         <ToastProvider>
           <NavigationContainer theme={navTheme}>
-            <StatusBar style="light" />
+            <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
             <AuthGate>
               <DataProvider>
                 <PermissionsGate>
@@ -66,5 +72,13 @@ export default function App() {
         </ToastProvider>
       </AuthProvider>
     </SafeAreaProvider>
+  );
+}
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <AppInner />
+    </ThemeProvider>
   );
 }

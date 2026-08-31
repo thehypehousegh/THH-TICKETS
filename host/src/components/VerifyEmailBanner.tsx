@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Button } from './Button';
 import { useAuth } from '../data/AuthContext';
-import { fonts } from '../theme/tokens';
+import { fonts, withAlpha, type ThemeColors } from '../theme/tokens';
+import { useThemedStyles } from '../theme/useThemedStyles';
 
 export function VerifyEmailBanner() {
+  const styles = useThemedStyles(makeStyles);
   const { user, emailVerified, resendVerificationEmail, refreshEmailVerified } = useAuth();
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -54,15 +56,17 @@ export function VerifyEmailBanner() {
   );
 }
 
-const styles = StyleSheet.create({
-  banner: {
-    backgroundColor: 'rgba(255,179,71,0.12)',
-    borderRadius: 10,
-    padding: 10,
-    gap: 6,
-  },
-  text: { fontSize: 12, color: '#ffb347', fontFamily: fonts.body },
-  actions: { flexDirection: 'row', gap: 8 },
-  sent: { fontSize: 12, color: '#ffb347', fontFamily: fonts.bodyMedium, alignSelf: 'center' },
-  error: { fontSize: 11, color: '#e0705a', fontFamily: fonts.body },
-});
+function makeStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    banner: {
+      backgroundColor: withAlpha(colors.warning, 15),
+      borderRadius: 10,
+      padding: 10,
+      gap: 6,
+    },
+    text: { fontSize: 12, color: colors.warning, fontFamily: fonts.body },
+    actions: { flexDirection: 'row', gap: 8 },
+    sent: { fontSize: 12, color: colors.warning, fontFamily: fonts.bodyMedium, alignSelf: 'center' },
+    error: { fontSize: 11, color: colors.danger, fontFamily: fonts.body },
+  });
+}

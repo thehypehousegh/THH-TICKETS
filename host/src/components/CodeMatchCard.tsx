@@ -1,7 +1,9 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { CheckCircle, Clock } from 'phosphor-react-native';
-import { colors, fonts, radius } from '../theme/tokens';
+import { fonts, radius, withAlpha, type ThemeColors } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import { Button } from './Button';
 import { Tag } from './Tag';
 import type { CodeMatch } from '../utils/verify';
@@ -26,6 +28,8 @@ export function CodeMatchCard({
   onCheckIn: () => void;
   onUndo: () => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { batch, code } = match;
   const used = !!code.usedAt;
   return (
@@ -41,7 +45,7 @@ export function CodeMatchCard({
       <View style={styles.statusRow}>
         {used ? (
           <>
-            <Clock size={14} color="#e0b050" weight="fill" />
+            <Clock size={14} color={colors.warning} weight="fill" />
             <Text style={styles.statusUsed}>Checked in {formatTime(code.usedAt!)}</Text>
           </>
         ) : (
@@ -60,21 +64,23 @@ export function CodeMatchCard({
   );
 }
 
-const styles = StyleSheet.create({
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: 16,
-    gap: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(145,132,217,0.45)',
-  },
-  cardUsed: { borderColor: 'rgba(224,176,80,0.55)' },
-  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  code: { fontFamily: fonts.monoMedium, fontSize: 15, color: colors.text },
-  person: { fontFamily: fonts.heading, fontSize: 17, color: colors.text, marginTop: 4 },
-  type: { fontSize: 12.5, color: 'rgba(233,233,237,0.62)', fontFamily: fonts.body },
-  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4, marginBottom: 6 },
-  statusValid: { fontSize: 12.5, color: colors.accent, fontFamily: fonts.bodyMedium },
-  statusUsed: { fontSize: 12.5, color: '#e0b050', fontFamily: fonts.bodyMedium },
-});
+function makeStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    card: {
+      backgroundColor: colors.surface,
+      borderRadius: radius.lg,
+      padding: 16,
+      gap: 6,
+      borderWidth: 1,
+      borderColor: withAlpha(colors.accent, 45),
+    },
+    cardUsed: { borderColor: withAlpha(colors.warning, 55) },
+    topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    code: { fontFamily: fonts.monoMedium, fontSize: 15, color: colors.text },
+    person: { fontFamily: fonts.heading, fontSize: 17, color: colors.text, marginTop: 4 },
+    type: { fontSize: 12.5, color: withAlpha(colors.text, 62), fontFamily: fonts.body },
+    statusRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4, marginBottom: 6 },
+    statusValid: { fontSize: 12.5, color: colors.accent, fontFamily: fonts.bodyMedium },
+    statusUsed: { fontSize: 12.5, color: colors.warning, fontFamily: fonts.bodyMedium },
+  });
+}

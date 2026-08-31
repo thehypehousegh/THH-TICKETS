@@ -1,7 +1,9 @@
 import React from 'react';
 import { FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Check } from 'phosphor-react-native';
-import { colors, fonts, radius } from '../theme/tokens';
+import { fonts, radius, withAlpha, type ThemeColors } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
+import { useThemedStyles } from '../theme/useThemedStyles';
 
 export interface SheetOption<T extends string = string> {
   label: string;
@@ -25,6 +27,8 @@ export function OptionSheet<T extends string>({
   onSelect,
   onClose,
 }: OptionSheetProps<T>) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>
@@ -56,33 +60,35 @@ export function OptionSheet<T extends string>({
   );
 }
 
-const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
-  sheet: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: radius.lg,
-    borderTopRightRadius: radius.lg,
-    paddingTop: 14,
-    paddingBottom: 28,
-    paddingHorizontal: 6,
-  },
-  title: {
-    fontFamily: fonts.headingSemibold,
-    fontSize: 10,
-    letterSpacing: 1.8,
-    color: 'rgba(233,233,237,0.55)',
-    paddingHorizontal: 14,
-    paddingBottom: 8,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    minHeight: 48,
-    paddingHorizontal: 14,
-    borderRadius: radius.md,
-  },
-  rowActive: { backgroundColor: 'rgba(145,132,217,0.12)' },
-  rowText: { fontFamily: fonts.body, fontSize: 15, color: colors.text },
-  rowTextActive: { color: colors.accent, fontFamily: fonts.bodyMedium },
-});
+function makeStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
+    sheet: {
+      backgroundColor: colors.surface,
+      borderTopLeftRadius: radius.lg,
+      borderTopRightRadius: radius.lg,
+      paddingTop: 14,
+      paddingBottom: 28,
+      paddingHorizontal: 6,
+    },
+    title: {
+      fontFamily: fonts.headingSemibold,
+      fontSize: 10,
+      letterSpacing: 1.8,
+      color: withAlpha(colors.text, 55),
+      paddingHorizontal: 14,
+      paddingBottom: 8,
+    },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      minHeight: 48,
+      paddingHorizontal: 14,
+      borderRadius: radius.md,
+    },
+    rowActive: { backgroundColor: withAlpha(colors.accent, 12) },
+    rowText: { fontFamily: fonts.body, fontSize: 15, color: colors.text },
+    rowTextActive: { color: colors.accent, fontFamily: fonts.bodyMedium },
+  });
+}

@@ -2,7 +2,9 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Minus, Plus } from 'phosphor-react-native';
 import { Button } from './Button';
-import { colors, fonts } from '../theme/tokens';
+import { fonts, type ThemeColors } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
+import { useThemedStyles } from '../theme/useThemedStyles';
 
 export function Stepper({
   value,
@@ -17,6 +19,8 @@ export function Stepper({
   min?: number;
   max?: number;
 }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.row}>
       <Button
@@ -40,7 +44,9 @@ export function Stepper({
   );
 }
 
-const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  value: { width: 42, textAlign: 'center', fontSize: 22, color: colors.text, fontFamily: fonts.monoMedium },
-});
+function makeStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    value: { width: 42, textAlign: 'center', fontSize: 22, color: colors.text, fontFamily: fonts.monoMedium },
+  });
+}

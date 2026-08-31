@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { CaretLeft, CaretRight } from 'phosphor-react-native';
-import { colors, fonts, radius } from '../theme/tokens';
+import { fonts, radius, withAlpha, type ThemeColors } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import { inputBaseStyle } from './Field';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -27,6 +29,8 @@ interface CalendarFieldProps {
 }
 
 export function CalendarField({ label, value, placeholder, onChange }: CalendarFieldProps) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [open, setOpen] = useState(false);
   const parsed = value ? value.split('-').map(Number) : null;
   const today = new Date();
@@ -57,7 +61,7 @@ export function CalendarField({ label, value, placeholder, onChange }: CalendarF
   return (
     <View style={{ gap: 5, flex: 1 }}>
       <Text style={styles.label}>{label}</Text>
-      <Pressable style={inputBaseStyle} onPress={openSheet}>
+      <Pressable style={inputBaseStyle(colors)} onPress={openSheet}>
         <Text style={value ? styles.valueText : styles.placeholderText}>{value || placeholder}</Text>
       </Pressable>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
@@ -104,20 +108,22 @@ export function CalendarField({ label, value, placeholder, onChange }: CalendarF
   );
 }
 
-const styles = StyleSheet.create({
-  label: { fontSize: 12, color: 'rgba(233,233,237,0.7)', fontFamily: fonts.body },
-  valueText: { color: colors.text, fontSize: 14, fontFamily: fonts.body },
-  placeholderText: { color: 'rgba(233,233,237,0.35)', fontSize: 14, fontFamily: fonts.body },
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center', padding: 24 },
-  sheet: { width: '100%', maxWidth: 340, backgroundColor: colors.surface, borderRadius: radius.lg, padding: 16, gap: 12 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  navBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
-  monthLabel: { fontFamily: fonts.heading, fontSize: 15, color: colors.text },
-  weekRow: { flexDirection: 'row' },
-  weekday: { flex: 1, textAlign: 'center', fontSize: 11, color: 'rgba(233,233,237,0.45)', fontFamily: fonts.body },
-  grid: { flexDirection: 'row', flexWrap: 'wrap' },
-  cell: { width: `${100 / 7}%`, aspectRatio: 1, alignItems: 'center', justifyContent: 'center' },
-  cellSelected: { backgroundColor: colors.accent, borderRadius: 999 },
-  cellText: { fontSize: 13.5, color: colors.text, fontFamily: fonts.body },
-  cellTextSelected: { color: '#161826', fontFamily: fonts.bodyMedium },
-});
+function makeStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    label: { fontSize: 12, color: withAlpha(colors.text, 70), fontFamily: fonts.body },
+    valueText: { color: colors.text, fontSize: 14, fontFamily: fonts.body },
+    placeholderText: { color: withAlpha(colors.text, 35), fontSize: 14, fontFamily: fonts.body },
+    backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center', padding: 24 },
+    sheet: { width: '100%', maxWidth: 340, backgroundColor: colors.surface, borderRadius: radius.lg, padding: 16, gap: 12 },
+    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    navBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
+    monthLabel: { fontFamily: fonts.heading, fontSize: 15, color: colors.text },
+    weekRow: { flexDirection: 'row' },
+    weekday: { flex: 1, textAlign: 'center', fontSize: 11, color: withAlpha(colors.text, 45), fontFamily: fonts.body },
+    grid: { flexDirection: 'row', flexWrap: 'wrap' },
+    cell: { width: `${100 / 7}%`, aspectRatio: 1, alignItems: 'center', justifyContent: 'center' },
+    cellSelected: { backgroundColor: colors.accent, borderRadius: 999 },
+    cellText: { fontSize: 13.5, color: colors.text, fontFamily: fonts.body },
+    cellTextSelected: { color: colors.onAccent, fontFamily: fonts.bodyMedium },
+  });
+}

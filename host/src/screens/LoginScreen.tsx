@@ -8,7 +8,9 @@ import { Field } from '../components/Field';
 import { PasswordField } from '../components/PasswordField';
 import { Button } from '../components/Button';
 import { useAuth } from '../data/AuthContext';
-import { colors, fonts } from '../theme/tokens';
+import { fonts, withAlpha, type ThemeColors } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
+import { useThemedStyles } from '../theme/useThemedStyles';
 
 function readableError(e: unknown): string {
   const code = (e as { code?: string })?.code ?? '';
@@ -51,6 +53,8 @@ async function writeAttempts(email: string, data: { count: number; lockedUntil: 
 }
 
 export function LoginScreen() {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { signIn, signUp, resetPassword } = useAuth();
   const [mode, setMode] = useState<'signIn' | 'signUp' | 'reset'>('signIn');
   const [name, setName] = useState('');
@@ -248,11 +252,13 @@ export function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  kicker: { fontFamily: fonts.headingSemibold, fontSize: 10, letterSpacing: 2.2, color: colors.accent },
-  title: { fontFamily: fonts.heading, fontSize: 24, color: colors.text },
-  error: { fontSize: 12.5, color: '#e0705a', fontFamily: fonts.body },
-  hint: { fontSize: 12, color: 'rgba(233,233,237,0.55)', fontFamily: fonts.body },
-  logoRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  logoPreview: { width: 44, height: 44, borderRadius: 8, backgroundColor: colors.surface },
-});
+function makeStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    kicker: { fontFamily: fonts.headingSemibold, fontSize: 10, letterSpacing: 2.2, color: colors.accent },
+    title: { fontFamily: fonts.heading, fontSize: 24, color: colors.text },
+    error: { fontSize: 12.5, color: colors.danger, fontFamily: fonts.body },
+    hint: { fontSize: 12, color: withAlpha(colors.text, 55), fontFamily: fonts.body },
+    logoRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    logoPreview: { width: 44, height: 44, borderRadius: 8, backgroundColor: colors.surface },
+  });
+}

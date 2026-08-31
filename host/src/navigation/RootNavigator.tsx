@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { RootStackParamList } from './types';
 import { Tabs } from './Tabs';
@@ -11,13 +11,18 @@ import { ScanScreen } from '../screens/ScanScreen';
 import { DiscountsScreen } from '../screens/DiscountsScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { AdminScreen } from '../screens/AdminScreen';
-import { colors } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export function RootNavigator() {
+  const { colors } = useTheme();
+  const screenOptions = useMemo(
+    () => ({ headerShown: false, contentStyle: { backgroundColor: colors.bg } }),
+    [colors]
+  );
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
+    <Stack.Navigator screenOptions={screenOptions}>
       <Stack.Screen name="Tabs" component={Tabs} />
       <Stack.Screen name="CreateEvent" component={CreateEventScreen} />
       <Stack.Screen name="EditEvent" component={EditEventScreen} />

@@ -12,12 +12,16 @@ import { useData } from '../data/DataContext';
 import { useAuth } from '../data/AuthContext';
 import { longWhen, BRAND_PREFIX } from '../utils/codes';
 import { describeEventTiming } from '../utils/eventTiming';
-import { colors, fonts } from '../theme/tokens';
+import { fonts, withAlpha, type ThemeColors } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import type { EventRecord } from '../data/types';
 
 type Props = TabScreenProps<'Events'>;
 
 export function EventsListScreen({ navigation }: Props) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { events, batchesForEvent } = useData();
   const { organizer } = useAuth();
 
@@ -80,27 +84,29 @@ export function EventsListScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { padding: 20, paddingBottom: 0, gap: 14 },
-  header: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
-  kicker: { fontFamily: fonts.headingSemibold, fontSize: 10, letterSpacing: 2.2, color: colors.accent, marginBottom: 6 },
-  title: { fontFamily: fonts.heading, fontSize: 27, color: colors.text },
-  list: { gap: 10, paddingBottom: 108, paddingTop: 4 },
-  card: { padding: 14, borderRadius: 14 },
-  cardRow: { flexDirection: 'row', gap: 12 },
-  flyerThumb: { width: 60, height: 80, borderRadius: 8, backgroundColor: colors.surface },
-  flyerThumbEmpty: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: colors.accent,
-  },
-  cardBody: { flex: 1, gap: 8 },
-  topRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  abbrText: { fontFamily: fonts.monoBold, fontSize: 11, letterSpacing: 1, color: colors.accent },
-  name: { fontFamily: fonts.heading, fontSize: 17, color: colors.text },
-  metaCol: { gap: 2 },
-  meta: { fontSize: 12, color: 'rgba(233,233,237,0.52)', fontFamily: fonts.body },
-  sample: { fontFamily: fonts.mono, fontSize: 10.5, color: colors.accent2, marginTop: 2 },
-  empty: { fontSize: 13, color: 'rgba(233,233,237,0.5)', fontFamily: fonts.body, paddingTop: 24, textAlign: 'center' },
-});
+function makeStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    screen: { padding: 20, paddingBottom: 0, gap: 14 },
+    header: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
+    kicker: { fontFamily: fonts.headingSemibold, fontSize: 10, letterSpacing: 2.2, color: colors.accent, marginBottom: 6 },
+    title: { fontFamily: fonts.heading, fontSize: 27, color: colors.text },
+    list: { gap: 10, paddingBottom: 108, paddingTop: 4 },
+    card: { padding: 14, borderRadius: 14 },
+    cardRow: { flexDirection: 'row', gap: 12 },
+    flyerThumb: { width: 60, height: 80, borderRadius: 8, backgroundColor: colors.surface },
+    flyerThumbEmpty: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: colors.accent,
+    },
+    cardBody: { flex: 1, gap: 8 },
+    topRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    abbrText: { fontFamily: fonts.monoBold, fontSize: 11, letterSpacing: 1, color: colors.accent },
+    name: { fontFamily: fonts.heading, fontSize: 17, color: colors.text },
+    metaCol: { gap: 2 },
+    meta: { fontSize: 12, color: withAlpha(colors.text, 52), fontFamily: fonts.body },
+    sample: { fontFamily: fonts.mono, fontSize: 10.5, color: colors.accent2, marginTop: 2 },
+    empty: { fontSize: 13, color: withAlpha(colors.text, 50), fontFamily: fonts.body, paddingTop: 24, textAlign: 'center' },
+  });
+}

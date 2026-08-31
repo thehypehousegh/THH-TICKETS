@@ -1,6 +1,8 @@
 import React, { useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { colors, fonts, radius } from '../theme/tokens';
+import { fonts, radius, withAlpha, type ThemeColors } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import { Button } from './Button';
 import { inputBaseStyle } from './Field';
 
@@ -20,6 +22,8 @@ interface TimeFieldProps {
 }
 
 export function TimeField({ label, value, placeholder, onChange }: TimeFieldProps) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [open, setOpen] = useState(false);
   const [hh, setHh] = useState(0);
   const [mm, setMm] = useState(0);
@@ -48,7 +52,7 @@ export function TimeField({ label, value, placeholder, onChange }: TimeFieldProp
   return (
     <View style={{ gap: 5, flex: 1 }}>
       <Text style={styles.label}>{label}</Text>
-      <Pressable style={inputBaseStyle} onPress={openSheet}>
+      <Pressable style={inputBaseStyle(colors)} onPress={openSheet}>
         <Text style={value ? styles.valueText : styles.placeholderText}>{display}</Text>
       </Pressable>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
@@ -88,19 +92,21 @@ export function TimeField({ label, value, placeholder, onChange }: TimeFieldProp
   );
 }
 
-const styles = StyleSheet.create({
-  label: { fontSize: 12, color: 'rgba(233,233,237,0.7)', fontFamily: fonts.body },
-  valueText: { color: colors.text, fontSize: 14, fontFamily: fonts.body },
-  placeholderText: { color: 'rgba(233,233,237,0.35)', fontSize: 14, fontFamily: fonts.body },
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center', padding: 24 },
-  sheet: { width: '100%', maxWidth: 300, backgroundColor: colors.surface, borderRadius: radius.lg, padding: 16, gap: 12 },
-  title: {
-    fontFamily: fonts.headingSemibold, fontSize: 10, letterSpacing: 1.8, color: 'rgba(233,233,237,0.55)',
-  },
-  columns: { flexDirection: 'row', gap: 8, height: 220 },
-  col: { flex: 1 },
-  row: { height: ROW_HEIGHT, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md },
-  rowActive: { backgroundColor: 'rgba(145,132,217,0.15)' },
-  rowText: { fontFamily: fonts.mono, fontSize: 15, color: colors.text },
-  rowTextActive: { color: colors.accent, fontFamily: fonts.monoMedium },
-});
+function makeStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    label: { fontSize: 12, color: withAlpha(colors.text, 70), fontFamily: fonts.body },
+    valueText: { color: colors.text, fontSize: 14, fontFamily: fonts.body },
+    placeholderText: { color: withAlpha(colors.text, 35), fontSize: 14, fontFamily: fonts.body },
+    backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center', padding: 24 },
+    sheet: { width: '100%', maxWidth: 300, backgroundColor: colors.surface, borderRadius: radius.lg, padding: 16, gap: 12 },
+    title: {
+      fontFamily: fonts.headingSemibold, fontSize: 10, letterSpacing: 1.8, color: withAlpha(colors.text, 55),
+    },
+    columns: { flexDirection: 'row', gap: 8, height: 220 },
+    col: { flex: 1 },
+    row: { height: ROW_HEIGHT, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md },
+    rowActive: { backgroundColor: withAlpha(colors.accent, 15) },
+    rowText: { fontFamily: fonts.mono, fontSize: 15, color: colors.text },
+    rowTextActive: { color: colors.accent, fontFamily: fonts.monoMedium },
+  });
+}

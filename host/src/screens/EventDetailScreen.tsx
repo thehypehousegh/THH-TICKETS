@@ -19,7 +19,9 @@ import { exportEventTicketsPdf } from '../utils/pdf';
 import { findCodeMatches } from '../utils/verify';
 import { publicEventUrl } from '../utils/links';
 import { computeEventStats } from '../utils/stats';
-import { colors, fonts } from '../theme/tokens';
+import { fonts, withAlpha, type ThemeColors } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
+import { useThemedStyles } from '../theme/useThemedStyles';
 
 type Props = RootScreenProps<'EventDetail'>;
 
@@ -30,6 +32,8 @@ function summarize(codes: { type: string }[]) {
 }
 
 export function EventDetailScreen({ route, navigation }: Props) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { eventId } = route.params;
   const { getEvent, batchesForEvent, setCodeUsed, deleteEventData, setEventStatusData } = useData();
   const { flash } = useToast();
@@ -278,7 +282,7 @@ export function EventDetailScreen({ route, navigation }: Props) {
             <Text style={styles.statBigLabel}>Verified</Text>
           </View>
           <View style={styles.statBig}>
-            <Text style={[styles.statBigNumber, { color: 'rgba(233,233,237,0.55)' }]}>{stats.unverified}</Text>
+            <Text style={[styles.statBigNumber, { color: withAlpha(colors.text, 55) }]}>{stats.unverified}</Text>
             <Text style={styles.statBigLabel}>Unverified</Text>
           </View>
         </View>
@@ -400,56 +404,58 @@ export function EventDetailScreen({ route, navigation }: Props) {
         title={deleting ? 'Deleting…' : 'Delete event'}
         loading={deleting}
         onPress={onDelete}
-        icon={<Trash size={16} color="#e0705a" />}
+        icon={<Trash size={16} color={colors.danger} />}
         style={{ alignSelf: 'flex-start' }}
       />
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  flyerBanner: { width: '100%', aspectRatio: 4 / 5, borderRadius: 12, backgroundColor: colors.surface, marginTop: 4 },
-  topBadges: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
-  abbrBox: {
-    alignSelf: 'flex-start',
-    borderWidth: 1,
-    borderColor: colors.accent,
-    borderRadius: 4,
-    paddingHorizontal: 7,
-    paddingVertical: 4,
-  },
-  abbrText: { fontFamily: fonts.monoBold, fontSize: 11, letterSpacing: 1, color: colors.accent },
-  name: { fontFamily: fonts.heading, fontSize: 25, color: colors.text },
-  meta: { fontSize: 12.5, color: 'rgba(233,233,237,0.62)', fontFamily: fonts.body },
-  desc: { fontSize: 12.5, lineHeight: 18, color: 'rgba(233,233,237,0.74)', fontFamily: fonts.body },
-  tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
-  actionsRow: { flexDirection: 'row', gap: 10, alignItems: 'center' },
-  tagCode: { fontFamily: fonts.mono, color: colors.accent },
-  linkCard: { backgroundColor: colors.surface, borderRadius: 10, padding: 14, gap: 8 },
-  statBigRow: { flexDirection: 'row', gap: 8 },
-  statBig: {
-    flex: 1, backgroundColor: colors.surface, borderRadius: 10, padding: 12,
-    alignItems: 'center', gap: 2,
-  },
-  statBigNumber: { fontFamily: fonts.heading, fontSize: 22, color: colors.text },
-  statBigLabel: { fontSize: 10.5, color: 'rgba(233,233,237,0.5)', fontFamily: fonts.body, textAlign: 'center' },
-  statCard: { backgroundColor: colors.surface, borderRadius: 10, padding: 14, gap: 8 },
-  statCardHeader: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
-  statCardTitle: { fontFamily: fonts.headingSemibold, fontSize: 13, color: colors.text },
-  statCardTotal: { fontFamily: fonts.monoBold, fontSize: 15, color: colors.accent },
-  statTypeRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  statTypeLabel: { fontSize: 12.5, color: 'rgba(233,233,237,0.65)', fontFamily: fonts.body },
-  statTypeValue: { fontSize: 12.5, color: colors.text, fontFamily: fonts.monoMedium },
-  kicker: { fontFamily: fonts.headingSemibold, fontSize: 10, letterSpacing: 1.8, color: colors.accent },
-  linkValue: { fontFamily: fonts.mono, fontSize: 11.5, color: 'rgba(233,233,237,0.75)' },
-  hint: { fontSize: 11.5, lineHeight: 16, color: 'rgba(233,233,237,0.5)', fontFamily: fonts.body },
-  eventCode: { flex: 1, fontFamily: fonts.monoBold, fontSize: 20, letterSpacing: 3, color: colors.text },
-  issuedRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
-  sectionLabel: { fontFamily: fonts.headingSemibold, fontSize: 10, letterSpacing: 1.8, color: 'rgba(233,233,237,0.6)' },
-  issuedMeta: { fontSize: 11, color: 'rgba(233,233,237,0.45)', fontFamily: fonts.body },
-  batchTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  person: { fontFamily: fonts.heading, fontSize: 14, color: colors.text },
-  firstCode: { fontFamily: fonts.mono, fontSize: 10.5, color: 'rgba(233,233,237,0.58)' },
-  summary: { fontSize: 11, color: 'rgba(233,233,237,0.42)', fontFamily: fonts.body },
-  empty: { fontSize: 12, color: 'rgba(233,233,237,0.42)', fontFamily: fonts.body },
-});
+function makeStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    flyerBanner: { width: '100%', aspectRatio: 4 / 5, borderRadius: 12, backgroundColor: colors.surface, marginTop: 4 },
+    topBadges: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+    abbrBox: {
+      alignSelf: 'flex-start',
+      borderWidth: 1,
+      borderColor: colors.accent,
+      borderRadius: 4,
+      paddingHorizontal: 7,
+      paddingVertical: 4,
+    },
+    abbrText: { fontFamily: fonts.monoBold, fontSize: 11, letterSpacing: 1, color: colors.accent },
+    name: { fontFamily: fonts.heading, fontSize: 25, color: colors.text },
+    meta: { fontSize: 12.5, color: withAlpha(colors.text, 62), fontFamily: fonts.body },
+    desc: { fontSize: 12.5, lineHeight: 18, color: withAlpha(colors.text, 74), fontFamily: fonts.body },
+    tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
+    actionsRow: { flexDirection: 'row', gap: 10, alignItems: 'center' },
+    tagCode: { fontFamily: fonts.mono, color: colors.accent },
+    linkCard: { backgroundColor: colors.surface, borderRadius: 10, padding: 14, gap: 8 },
+    statBigRow: { flexDirection: 'row', gap: 8 },
+    statBig: {
+      flex: 1, backgroundColor: colors.surface, borderRadius: 10, padding: 12,
+      alignItems: 'center', gap: 2,
+    },
+    statBigNumber: { fontFamily: fonts.heading, fontSize: 22, color: colors.text },
+    statBigLabel: { fontSize: 10.5, color: withAlpha(colors.text, 50), fontFamily: fonts.body, textAlign: 'center' },
+    statCard: { backgroundColor: colors.surface, borderRadius: 10, padding: 14, gap: 8 },
+    statCardHeader: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
+    statCardTitle: { fontFamily: fonts.headingSemibold, fontSize: 13, color: colors.text },
+    statCardTotal: { fontFamily: fonts.monoBold, fontSize: 15, color: colors.accent },
+    statTypeRow: { flexDirection: 'row', justifyContent: 'space-between' },
+    statTypeLabel: { fontSize: 12.5, color: withAlpha(colors.text, 65), fontFamily: fonts.body },
+    statTypeValue: { fontSize: 12.5, color: colors.text, fontFamily: fonts.monoMedium },
+    kicker: { fontFamily: fonts.headingSemibold, fontSize: 10, letterSpacing: 1.8, color: colors.accent },
+    linkValue: { fontFamily: fonts.mono, fontSize: 11.5, color: withAlpha(colors.text, 75) },
+    hint: { fontSize: 11.5, lineHeight: 16, color: withAlpha(colors.text, 50), fontFamily: fonts.body },
+    eventCode: { flex: 1, fontFamily: fonts.monoBold, fontSize: 20, letterSpacing: 3, color: colors.text },
+    issuedRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
+    sectionLabel: { fontFamily: fonts.headingSemibold, fontSize: 10, letterSpacing: 1.8, color: withAlpha(colors.text, 60) },
+    issuedMeta: { fontSize: 11, color: withAlpha(colors.text, 45), fontFamily: fonts.body },
+    batchTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    person: { fontFamily: fonts.heading, fontSize: 14, color: colors.text },
+    firstCode: { fontFamily: fonts.mono, fontSize: 10.5, color: withAlpha(colors.text, 58) },
+    summary: { fontSize: 11, color: withAlpha(colors.text, 42), fontFamily: fonts.body },
+    empty: { fontSize: 12, color: withAlpha(colors.text, 42), fontFamily: fonts.body },
+  });
+}

@@ -10,12 +10,16 @@ import { BackButton } from '../components/BackButton';
 import { Stepper } from '../components/Stepper';
 import { useData } from '../data/DataContext';
 import { codeShape } from '../utils/codes';
-import { colors, fonts } from '../theme/tokens';
+import { fonts, withAlpha, type ThemeColors } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import type { TicketSelection } from '../data/types';
 
 type Props = RootScreenProps<'Generate'>;
 
 export function GenerateScreen({ route, navigation }: Props) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { eventId } = route.params;
   const { getEvent, generateCodes } = useData();
   const event = getEvent(eventId);
@@ -148,17 +152,19 @@ export function GenerateScreen({ route, navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  title: { fontFamily: fonts.heading, fontSize: 24, color: colors.text },
-  kicker: { fontFamily: fonts.headingSemibold, fontSize: 10, letterSpacing: 1.8, color: colors.accent },
-  label: { fontSize: 12, color: 'rgba(233,233,237,0.7)', fontFamily: fonts.body },
-  qtyRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  selectionCard: { backgroundColor: colors.surface, borderRadius: 8, padding: 12, gap: 9 },
-  selectionHeader: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
-  totalLabel: { fontSize: 11, color: 'rgba(233,233,237,0.5)', fontFamily: fonts.body },
-  pickedRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  pickedQty: { width: 26, fontFamily: fonts.monoMedium, fontSize: 15, color: colors.accent },
-  pickedLabel: { fontFamily: fonts.heading, fontSize: 13.5, color: colors.text },
-  pickedShape: { fontFamily: fonts.mono, fontSize: 10, color: 'rgba(233,233,237,0.45)' },
-  emptyHint: { fontSize: 12.5, lineHeight: 18, color: 'rgba(233,233,237,0.55)', fontFamily: fonts.body },
-});
+function makeStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    title: { fontFamily: fonts.heading, fontSize: 24, color: colors.text },
+    kicker: { fontFamily: fonts.headingSemibold, fontSize: 10, letterSpacing: 1.8, color: colors.accent },
+    label: { fontSize: 12, color: withAlpha(colors.text, 70), fontFamily: fonts.body },
+    qtyRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    selectionCard: { backgroundColor: colors.surface, borderRadius: 8, padding: 12, gap: 9 },
+    selectionHeader: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
+    totalLabel: { fontSize: 11, color: withAlpha(colors.text, 50), fontFamily: fonts.body },
+    pickedRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    pickedQty: { width: 26, fontFamily: fonts.monoMedium, fontSize: 15, color: colors.accent },
+    pickedLabel: { fontFamily: fonts.heading, fontSize: 13.5, color: colors.text },
+    pickedShape: { fontFamily: fonts.mono, fontSize: 10, color: withAlpha(colors.text, 45) },
+    emptyHint: { fontSize: 12.5, lineHeight: 18, color: withAlpha(colors.text, 55), fontFamily: fonts.body },
+  });
+}

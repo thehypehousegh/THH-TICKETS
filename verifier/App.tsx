@@ -5,12 +5,13 @@ import { ensureSignedIn } from './src/firebase/app';
 import { fetchEvent } from './src/data/eventSync';
 import { JoinScreen } from './src/screens/JoinScreen';
 import { VerifyScreen } from './src/screens/VerifyScreen';
-import { colors } from './src/theme/tokens';
+import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
 import type { EventRecord } from './src/data/types';
 
 const LAST_EVENT_KEY = 'thh-verifier-last-event-id';
 
-export default function App() {
+function AppInner() {
+  const { theme, colors } = useTheme();
   const [ready, setReady] = useState(false);
   const [myUid, setMyUid] = useState<string | null>(null);
   const [event, setEvent] = useState<EventRecord | null>(null);
@@ -47,12 +48,20 @@ export default function App() {
 
   return (
     <>
-      <StatusBar barStyle="light-content" backgroundColor={colors.bg} />
+      <StatusBar barStyle={theme === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={colors.bg} />
       {event ? (
         <VerifyScreen event={event} myUid={myUid} onLeave={onLeave} />
       ) : (
         <JoinScreen onJoined={onJoined} />
       )}
     </>
+  );
+}
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <AppInner />
+    </ThemeProvider>
   );
 }

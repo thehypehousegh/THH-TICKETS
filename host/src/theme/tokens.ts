@@ -1,7 +1,21 @@
 // Ported from the Nocturne design system (project/_ds/.../styles.css) used by
 // the Claude Design prototype in project/Ticket Codes.dc.html.
+//
+// `darkColors` / `lightColors` are the two selectable palettes; components
+// never import either of these directly -- they read the active one via
+// `useTheme()` from `./ThemeContext`. This file (and ThemeContext, which
+// imports the raw palettes below) is the only place that should reference
+// `darkColors`/`lightColors` by name.
 
-export const colors = {
+export function withAlpha(hex: string, pct: number) {
+  // e.g. withAlpha(colors.text, 52) ~= color-mix(in srgb, <hex> 52%, transparent)
+  const a = Math.round((pct / 100) * 255)
+    .toString(16)
+    .padStart(2, '0');
+  return hex + a;
+}
+
+export const darkColors = {
   bg: '#161826',
   surface: '#232532',
   text: '#e9e9ed',
@@ -9,20 +23,47 @@ export const colors = {
   accent2: '#a7a1db',
   divider: 'rgba(233,233,237,0.16)',
 
+  // Text/icon color to place on top of an `accent`-filled surface (e.g. a
+  // primary button). Coincides with `bg` here because the dark accent is
+  // light enough for the dark background color to read on top of it.
+  onAccent: '#161826',
+
   accent100: '#f5f4ff',
   accent800: '#423a6a',
 
   neutral800: '#3f424d',
   neutral100: '#f3f5fe',
+
+  danger: '#e0705a',
+  warning: '#ffb347',
 };
 
-export function textAlpha(pct: number) {
-  // e.g. textAlpha(52) ~= color-mix(in srgb, var(--color-text) 52%, transparent)
-  const a = Math.round((pct / 100) * 255)
-    .toString(16)
-    .padStart(2, '0');
-  return colors.text + a;
-}
+// A real light palette, not an inversion: same violet brand family as the
+// dark theme, retuned so accent/text/dividers all clear WCAG AA against the
+// light surfaces (verified against bg/surface, not just white).
+export const lightColors = {
+  bg: '#f6f3fc',
+  surface: '#ffffff',
+  text: '#211d34',
+  accent: '#6e56cf',
+  accent2: '#8347e5',
+  divider: withAlpha('#211d34', 12),
+
+  // The light accent is too dark for dark text to sit on top of it at AA
+  // contrast, so (unlike dark mode) `onAccent` is a light color here.
+  onAccent: '#fbfaff',
+
+  accent100: '#fbfaff',
+  accent800: '#5b3fc0',
+
+  neutral800: '#e7e4f2',
+  neutral100: '#332e4d',
+
+  danger: '#c0392b',
+  warning: '#a15c00',
+};
+
+export type ThemeColors = typeof darkColors;
 
 export const fonts = {
   heading: 'Inter_500Medium',

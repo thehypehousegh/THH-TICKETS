@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
-import { colors, fonts } from '../theme/tokens';
+import { fonts, type ThemeColors } from '../theme/tokens';
+import { useThemedStyles } from '../theme/useThemedStyles';
 
 type TagVariant = 'neutral' | 'accent' | 'outline';
 
@@ -15,31 +16,40 @@ export function Tag({
   style?: StyleProp<ViewStyle>;
   monoAccent?: React.ReactNode;
 }) {
+  const { styles, variantBg, variantText } = useThemedStyles(makeStyles);
   return (
-    <View style={[styles.base, variantStyles[variant], style]}>
-      <Text style={[styles.text, variant === 'outline' && { color: colors.accent }, variant === 'accent' && { color: colors.accent100 }]}>
-        {children}
-      </Text>
+    <View style={[styles.base, variantBg[variant], style]}>
+      <Text style={[styles.text, variantText[variant]]}>{children}</Text>
       {monoAccent}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  base: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 6,
-    alignSelf: 'flex-start',
-  },
-  text: { fontSize: 11, color: colors.neutral100, fontFamily: fonts.body },
-});
+function makeStyles(colors: ThemeColors) {
+  const styles = StyleSheet.create({
+    base: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 10,
+      paddingVertical: 3,
+      borderRadius: 6,
+      alignSelf: 'flex-start',
+    },
+    text: { fontSize: 11, color: colors.neutral100, fontFamily: fonts.body },
+  });
 
-const variantStyles = StyleSheet.create({
-  neutral: { backgroundColor: colors.neutral800 },
-  accent: { backgroundColor: colors.accent800 },
-  outline: { borderWidth: 1, borderColor: colors.accent, backgroundColor: 'transparent' },
-});
+  const variantBg: Record<TagVariant, ViewStyle> = {
+    neutral: { backgroundColor: colors.neutral800 },
+    accent: { backgroundColor: colors.accent800 },
+    outline: { borderWidth: 1, borderColor: colors.accent, backgroundColor: 'transparent' },
+  };
+
+  const variantText: Record<TagVariant, ViewStyle | undefined> = {
+    neutral: undefined,
+    accent: { color: colors.accent100 } as ViewStyle,
+    outline: { color: colors.accent } as ViewStyle,
+  };
+
+  return { styles, variantBg, variantText };
+}

@@ -13,7 +13,9 @@ import { SegmentedControl } from '../components/SegmentedControl';
 import { useData } from '../data/DataContext';
 import { useToast } from '../components/Toast';
 import { createDiscount, deleteDiscount, setDiscountActive, watchEventDiscounts } from '../data/queries';
-import { colors, fonts, radius } from '../theme/tokens';
+import { fonts, radius, withAlpha, type ThemeColors } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import type { DiscountKind, DiscountRecord, DiscountValueType } from '../data/types';
 
 type Props = RootScreenProps<'Discounts'>;
@@ -27,6 +29,8 @@ const KIND_OPTIONS: { label: string; value: DiscountKind }[] = [
 ];
 
 export function DiscountsScreen({ route, navigation }: Props) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { eventId } = route.params;
   const { getEvent } = useData();
   const { flash } = useToast();
@@ -223,7 +227,7 @@ export function DiscountsScreen({ route, navigation }: Props) {
             <Text style={styles.discountScope}>{describeScope(d)}</Text>
             <View style={styles.discountActions}>
               <Button variant="secondary" title={d.active ? 'Active — tap to pause' : 'Paused — tap to activate'} onPress={() => onToggleActive(d)} style={{ flex: 1 }} />
-              <Button variant="danger" iconOnly onPress={() => onDelete(d)} icon={<Trash size={15} color="#e0705a" />} />
+              <Button variant="danger" iconOnly onPress={() => onDelete(d)} icon={<Trash size={15} color={colors.danger} />} />
             </View>
           </Card>
         ))}
@@ -233,27 +237,29 @@ export function DiscountsScreen({ route, navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  title: { fontFamily: fonts.heading, fontSize: 24, color: colors.text },
-  kicker: { fontFamily: fonts.headingSemibold, fontSize: 10, letterSpacing: 1.8, color: colors.accent },
-  hint: { fontSize: 12.5, lineHeight: 18, color: 'rgba(233,233,237,0.55)', fontFamily: fonts.body },
-  formCard: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: 14, gap: 10 },
-  sectionLabel: { fontFamily: fonts.headingSemibold, fontSize: 10, letterSpacing: 1.8, color: 'rgba(233,233,237,0.6)' },
-  label: { fontSize: 12, color: 'rgba(233,233,237,0.7)', fontFamily: fonts.body },
-  row: { flexDirection: 'row', gap: 10, alignItems: 'flex-end' },
-  typeChipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  typeChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    borderWidth: 1, borderColor: colors.divider, borderRadius: radius.md,
-    paddingHorizontal: 10, paddingVertical: 7,
-  },
-  typeChipActive: { borderColor: colors.accent, backgroundColor: 'rgba(145,132,217,0.12)' },
-  typeChipText: { fontSize: 12, color: colors.text, fontFamily: fonts.body },
-  typeChipTextActive: { color: colors.accent, fontFamily: fonts.bodyMedium },
-  discountTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  discountCode: { fontFamily: fonts.monoBold, fontSize: 17, letterSpacing: 1.5, color: colors.text },
-  discountMeta: { fontSize: 12.5, color: 'rgba(233,233,237,0.65)', fontFamily: fonts.body },
-  discountScope: { fontSize: 11.5, color: 'rgba(233,233,237,0.45)', fontFamily: fonts.body },
-  discountActions: { flexDirection: 'row', gap: 8 },
-  empty: { fontSize: 12, color: 'rgba(233,233,237,0.42)', fontFamily: fonts.body },
-});
+function makeStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    title: { fontFamily: fonts.heading, fontSize: 24, color: colors.text },
+    kicker: { fontFamily: fonts.headingSemibold, fontSize: 10, letterSpacing: 1.8, color: colors.accent },
+    hint: { fontSize: 12.5, lineHeight: 18, color: withAlpha(colors.text, 55), fontFamily: fonts.body },
+    formCard: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: 14, gap: 10 },
+    sectionLabel: { fontFamily: fonts.headingSemibold, fontSize: 10, letterSpacing: 1.8, color: withAlpha(colors.text, 60) },
+    label: { fontSize: 12, color: withAlpha(colors.text, 70), fontFamily: fonts.body },
+    row: { flexDirection: 'row', gap: 10, alignItems: 'flex-end' },
+    typeChipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    typeChip: {
+      flexDirection: 'row', alignItems: 'center', gap: 5,
+      borderWidth: 1, borderColor: colors.divider, borderRadius: radius.md,
+      paddingHorizontal: 10, paddingVertical: 7,
+    },
+    typeChipActive: { borderColor: colors.accent, backgroundColor: withAlpha(colors.accent, 12) },
+    typeChipText: { fontSize: 12, color: colors.text, fontFamily: fonts.body },
+    typeChipTextActive: { color: colors.accent, fontFamily: fonts.bodyMedium },
+    discountTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    discountCode: { fontFamily: fonts.monoBold, fontSize: 17, letterSpacing: 1.5, color: colors.text },
+    discountMeta: { fontSize: 12.5, color: withAlpha(colors.text, 65), fontFamily: fonts.body },
+    discountScope: { fontSize: 11.5, color: withAlpha(colors.text, 45), fontFamily: fonts.body },
+    discountActions: { flexDirection: 'row', gap: 8 },
+    empty: { fontSize: 12, color: withAlpha(colors.text, 42), fontFamily: fonts.body },
+  });
+}

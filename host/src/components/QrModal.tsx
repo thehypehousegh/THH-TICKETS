@@ -2,7 +2,9 @@ import React, { useRef, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { DownloadSimple, ShareNetwork, X } from 'phosphor-react-native';
-import { colors, fonts, radius } from '../theme/tokens';
+import { fonts, radius, withAlpha, type ThemeColors } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import { Button } from './Button';
 import { saveQrToPhotos, shareQrPng } from '../utils/qrExport';
 import { useToast } from './Toast';
@@ -16,6 +18,8 @@ interface QrModalProps {
 }
 
 export function QrModal({ visible, code, meta, eventName, onClose }: QrModalProps) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const svgRef = useRef<{ toDataURL: (cb: (base64: string) => void) => void } | null>(null);
   const { flash } = useToast();
   const [busy, setBusy] = useState(false);
@@ -58,7 +62,7 @@ export function QrModal({ visible, code, meta, eventName, onClose }: QrModalProp
           <View style={styles.header}>
             <Text style={styles.eventName} numberOfLines={1}>{eventName}</Text>
             <Pressable onPress={onClose} hitSlop={10}>
-              <X size={18} color="rgba(233,233,237,0.6)" />
+              <X size={18} color={withAlpha(colors.text, 60)} />
             </Pressable>
           </View>
           <View style={styles.qrBox}>
@@ -89,14 +93,16 @@ export function QrModal({ visible, code, meta, eventName, onClose }: QrModalProp
   );
 }
 
-const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center', padding: 24 },
-  sheet: { width: '100%', maxWidth: 320, backgroundColor: colors.surface, borderRadius: radius.lg, padding: 18, gap: 14, alignItems: 'center' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' },
-  eventName: { fontFamily: fonts.headingSemibold, fontSize: 10, letterSpacing: 1.6, color: colors.accent, flex: 1, textTransform: 'uppercase' },
-  qrBox: { backgroundColor: '#ffffff', padding: 14, borderRadius: radius.md },
-  code: { fontFamily: fonts.monoMedium, fontSize: 14, color: colors.text, textAlign: 'center' },
-  meta: { fontSize: 12, color: 'rgba(233,233,237,0.6)', fontFamily: fonts.body, textAlign: 'center' },
-  actions: { flexDirection: 'row', gap: 10, width: '100%' },
-  viewOnly: { fontSize: 11.5, color: 'rgba(233,233,237,0.45)', fontFamily: fonts.body, textAlign: 'center' },
-});
+function makeStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center', padding: 24 },
+    sheet: { width: '100%', maxWidth: 320, backgroundColor: colors.surface, borderRadius: radius.lg, padding: 18, gap: 14, alignItems: 'center' },
+    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' },
+    eventName: { fontFamily: fonts.headingSemibold, fontSize: 10, letterSpacing: 1.6, color: colors.accent, flex: 1, textTransform: 'uppercase' },
+    qrBox: { backgroundColor: '#ffffff', padding: 14, borderRadius: radius.md },
+    code: { fontFamily: fonts.monoMedium, fontSize: 14, color: colors.text, textAlign: 'center' },
+    meta: { fontSize: 12, color: withAlpha(colors.text, 60), fontFamily: fonts.body, textAlign: 'center' },
+    actions: { flexDirection: 'row', gap: 10, width: '100%' },
+    viewOnly: { fontSize: 11.5, color: withAlpha(colors.text, 45), fontFamily: fonts.body, textAlign: 'center' },
+  });
+}

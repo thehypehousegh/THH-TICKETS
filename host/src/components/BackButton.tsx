@@ -1,9 +1,10 @@
 import React from 'react';
 import { CaretLeft } from 'phosphor-react-native';
 import { Button } from './Button';
-import { colors } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
 
 export function BackButton({ label, onPress }: { label: string; onPress: () => void }) {
+  const { colors } = useTheme();
   return (
     <Button
       variant="ghost"

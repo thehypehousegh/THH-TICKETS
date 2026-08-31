@@ -5,7 +5,9 @@ import * as MediaLibrary from 'expo-media-library';
 import { PermissionStatus } from 'expo-modules-core';
 import { QrCode } from 'phosphor-react-native';
 import { Button } from './Button';
-import { colors, fonts } from '../theme/tokens';
+import { fonts, withAlpha, type ThemeColors } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
+import { useThemedStyles } from '../theme/useThemedStyles';
 
 /**
  * Android/iOS only support requesting dangerous permissions (camera, photos) at
@@ -13,6 +15,8 @@ import { colors, fonts } from '../theme/tokens';
  * are still undetermined; every later launch skips straight past it.
  */
 export function PermissionsGate({ children }: { children: React.ReactNode }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [cameraPerm, requestCamera] = useCameraPermissions();
   const [mediaStatus, setMediaStatus] = useState<PermissionStatus | null>(null);
   const [requesting, setRequesting] = useState(false);
@@ -53,9 +57,11 @@ export function PermissionsGate({ children }: { children: React.ReactNode }) {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 14 },
-  kicker: { fontFamily: fonts.headingSemibold, fontSize: 10, letterSpacing: 2.2, color: colors.accent, marginTop: 8 },
-  title: { fontFamily: fonts.heading, fontSize: 24, color: colors.text },
-  body: { fontSize: 13.5, lineHeight: 20, color: 'rgba(233,233,237,0.72)', fontFamily: fonts.body, textAlign: 'center', marginBottom: 8 },
-});
+function makeStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    screen: { flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 14 },
+    kicker: { fontFamily: fonts.headingSemibold, fontSize: 10, letterSpacing: 2.2, color: colors.accent, marginTop: 8 },
+    title: { fontFamily: fonts.heading, fontSize: 24, color: colors.text },
+    body: { fontSize: 13.5, lineHeight: 20, color: withAlpha(colors.text, 72), fontFamily: fonts.body, textAlign: 'center', marginBottom: 8 },
+  });
+}

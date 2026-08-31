@@ -12,12 +12,16 @@ import { SegmentedControl } from '../components/SegmentedControl';
 import { useAuth } from '../data/AuthContext';
 import { useToast } from '../components/Toast';
 import { uploadImage } from '../firebase/upload';
-import { colors, fonts } from '../theme/tokens';
+import { fonts, withAlpha, type ThemeColors } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import type { PayoutDetails } from '../data/types';
 
 type Props = RootScreenProps<'Profile'>;
 
 export function ProfileScreen({ navigation }: Props) {
+  const { colors, theme, setTheme } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { user, organizer, updateOrganizer } = useAuth();
   const { flash } = useToast();
   const [name, setName] = useState(organizer?.name ?? '');
@@ -73,6 +77,18 @@ export function ProfileScreen({ navigation }: Props) {
       <BackButton label="Back" onPress={() => navigation.goBack()} />
       <Text style={styles.title}>Organizer profile</Text>
 
+      <Text style={styles.sectionLabel}>APPEARANCE</Text>
+      <SegmentedControl
+        value={theme}
+        onChange={(v) => setTheme(v as 'dark' | 'light')}
+        options={[
+          { label: 'Dark', value: 'dark' },
+          { label: 'Light', value: 'light' },
+        ]}
+      />
+
+      <Divider />
+
       <Button
         variant="secondary"
         size="lg"
@@ -119,9 +135,11 @@ export function ProfileScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  title: { fontFamily: fonts.heading, fontSize: 24, color: colors.text },
-  logoPreview: { width: 64, height: 64, borderRadius: 10, backgroundColor: colors.surface },
-  sectionLabel: { fontFamily: fonts.headingSemibold, fontSize: 10, letterSpacing: 1.8, color: 'rgba(233,233,237,0.6)' },
-  hint: { fontSize: 12, lineHeight: 17, color: 'rgba(233,233,237,0.5)', fontFamily: fonts.body },
-});
+function makeStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    title: { fontFamily: fonts.heading, fontSize: 24, color: colors.text },
+    logoPreview: { width: 64, height: 64, borderRadius: 10, backgroundColor: colors.surface },
+    sectionLabel: { fontFamily: fonts.headingSemibold, fontSize: 10, letterSpacing: 1.8, color: withAlpha(colors.text, 60) },
+    hint: { fontSize: 12, lineHeight: 17, color: withAlpha(colors.text, 50), fontFamily: fonts.body },
+  });
+}

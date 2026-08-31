@@ -2,13 +2,14 @@ import React, { useState } from 'react';
 import { StyleSheet, TouchableOpacity, View, type TextInputProps } from 'react-native';
 import { Eye, EyeSlash } from 'phosphor-react-native';
 import { Field } from './Field';
-import { colors } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
 
 interface Props extends Omit<TextInputProps, 'secureTextEntry'> {
   label: string;
 }
 
 export function PasswordField({ label, style, ...props }: Props) {
+  const { colors } = useTheme();
   const [visible, setVisible] = useState(false);
   return (
     <View>
