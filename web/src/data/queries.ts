@@ -440,9 +440,21 @@ export function watchAllThreads(onChange: (threads: SupportThread[]) => void): U
   );
 }
 
-export function watchThreadMessages(threadId: string, onChange: (messages: SupportMessage[]) => void): Unsubscribe {
+export function watchThreadMessages(
+  threadId: string,
+  onChange: (messages: SupportMessage[]) => void,
+  onError?: (err: unknown) => void
+): Unsubscribe {
   const q = query(collection(db, 'supportThreads', threadId, 'messages'), orderBy('createdAt', 'asc'));
-  return onSnapshot(q, (snap) => onChange(snap.docs.map((d) => d.data() as SupportMessage)));
+  return onSnapshot(
+    q,
+    (snap) => onChange(snap.docs.map((d) => d.data() as SupportMessage)),
+    (err) => {
+      console.error('[watchThreadMessages] query failed:', err);
+      onError?.(err);
+      onChange([]);
+    }
+  );
 }
 
 export async function sendSupportMessage(

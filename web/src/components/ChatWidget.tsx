@@ -21,6 +21,7 @@ export function ChatWidget() {
   const [suggestHuman, setSuggestHuman] = useState(false);
   const [humanThread, setHumanThread] = useState<SupportThread | null>(null);
   const [startingHuman, setStartingHuman] = useState(false);
+  const [humanError, setHumanError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => bottomRef.current?.scrollIntoView({ block: 'nearest' }), [messages.length, humanThread]);
@@ -47,9 +48,13 @@ export function ChatWidget() {
   async function talkToHuman() {
     if (!user || !organizer) return;
     setStartingHuman(true);
+    setHumanError(null);
     try {
       const thread = await getOrCreateSupportThread(user.uid, organizer.name, null, null);
       setHumanThread(thread);
+    } catch (err) {
+      console.error('[ChatWidget] getOrCreateSupportThread failed:', err);
+      setHumanError('Could not start a conversation with the admin -- try again.');
     } finally {
       setStartingHuman(false);
     }
@@ -81,7 +86,7 @@ export function ChatWidget() {
                         className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${m.role === 'user' ? 'text-white' : 'bg-surface-hi text-text'}`}
                         style={m.role === 'user' ? { backgroundImage: 'var(--gradient-brand)' } : undefined}
                       >
-                        {m.content}
+                        {String(m.content ?? '')}
                       </div>
                     </div>
                   ))}
@@ -92,6 +97,7 @@ export function ChatWidget() {
 
               {suggestHuman && (
                 <div className="border-t border-divider px-3 py-2">
+                  {humanError && <p className="mb-2 text-xs text-danger">{humanError}</p>}
                   {user && organizer ? (
                     <Button variant="secondary" onClick={talkToHuman} disabled={startingHuman} className="w-full text-xs">
                       {startingHuman ? 'Starting...' : 'Talk to the admin instead'}

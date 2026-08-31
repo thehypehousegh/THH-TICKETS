@@ -33,12 +33,19 @@ export function Support() {
   const { user, organizer } = useAuth();
   const [generalThread, setGeneralThread] = useState<SupportThread | null>(null);
   const [eventThreads, setEventThreads] = useState<SupportThread[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user || !organizer) return;
-    getOrCreateSupportThread(user.uid, organizer.name, null, null).then(setGeneralThread);
+    let cancelled = false;
+    getOrCreateSupportThread(user.uid, organizer.name, null, null)
+      .then((thread) => { if (!cancelled) setGeneralThread(thread); })
+      .catch((err) => {
+        console.error('[Support] getOrCreateSupportThread failed:', err);
+        if (!cancelled) setError('Could not open your conversation with the admin -- try refreshing.');
+      });
     const unsub = watchMyThreads(user.uid, (threads) => setEventThreads(threads.filter((t) => t.eventId)));
-    return unsub;
+    return () => { cancelled = true; unsub(); };
   }, [user, organizer]);
 
   if (!user || !organizer) return null;
@@ -64,7 +71,9 @@ export function Support() {
 
       <Card className="mb-6 flex flex-col gap-3">
         <h2 className="font-medium text-text">Message the admin</h2>
-        {generalThread ? (
+        {error ? (
+          <p className="text-sm text-danger">{error}</p>
+        ) : generalThread ? (
           <SupportChat threadId={generalThread.id} myUid={user.uid} myRole="organizer" myName={organizer.name} />
         ) : (
           <p className="text-sm text-text-dim">Loading...</p>

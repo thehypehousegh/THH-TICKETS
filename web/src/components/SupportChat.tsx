@@ -14,18 +14,32 @@ export function SupportChat({ threadId, myUid, myRole, myName }: Props) {
   const [messages, setMessages] = useState<SupportMessage[]>([]);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => watchThreadMessages(threadId, setMessages), [threadId]);
+  useEffect(() => {
+    return watchThreadMessages(
+      threadId,
+      (msgs) => setMessages(msgs),
+      (err) => {
+        console.error('[SupportChat] watchThreadMessages failed:', err);
+        setError('Could not load messages.');
+      }
+    );
+  }, [threadId]);
   useEffect(() => bottomRef.current?.scrollIntoView({ block: 'nearest' }), [messages.length]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!text.trim() || sending) return;
     setSending(true);
+    setError(null);
     try {
       await sendSupportMessage(threadId, myUid, myRole, myName, text);
       setText('');
+    } catch (err) {
+      console.error('[SupportChat] sendSupportMessage failed:', err);
+      setError('Could not send that message -- try again.');
     } finally {
       setSending(false);
     }
@@ -45,16 +59,17 @@ export function SupportChat({ threadId, myUid, myRole, myName }: Props) {
                 }`}
                 style={mine ? { backgroundImage: 'var(--gradient-brand)' } : undefined}
               >
-                {m.text}
+                {String(m.text ?? '')}
               </div>
               <span className="mt-0.5 text-[10px] text-text-dim">
-                {m.senderRole === 'admin' ? 'Admin' : m.senderName} · {new Date(m.createdAt).toLocaleString()}
+                {m.senderRole === 'admin' ? 'Admin' : m.senderName} · {m.createdAt ? new Date(m.createdAt).toLocaleString() : ''}
               </span>
             </div>
           );
         })}
         <div ref={bottomRef} />
       </div>
+      {error && <p className="text-sm text-danger">{error}</p>}
       <form onSubmit={submit} className="flex gap-2">
         <Input value={text} onChange={(e) => setText(e.target.value)} placeholder="Type a message..." />
         <Button type="submit" disabled={sending || !text.trim()}>Send</Button>

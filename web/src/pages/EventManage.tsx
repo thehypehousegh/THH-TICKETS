@@ -42,9 +42,12 @@ export function EventManage() {
 
   useEffect(() => {
     if (!event) return;
-    getOrganizer(event.hostUid).then((owner) => {
-      getOrCreateSupportThread(event.hostUid, owner?.name ?? 'Organizer', event.id, event.name).then(setThread);
-    });
+    let cancelled = false;
+    getOrganizer(event.hostUid)
+      .then((owner) => getOrCreateSupportThread(event.hostUid, owner?.name ?? 'Organizer', event.id, event.name))
+      .then((t) => { if (!cancelled) setThread(t); })
+      .catch((err) => console.error('[EventManage] could not open support thread:', err));
+    return () => { cancelled = true; };
   }, [event]);
 
   const stats = useMemo(() => (event ? computeEventStats(event, batches) : null), [event, batches]);
