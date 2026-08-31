@@ -2,6 +2,7 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { getApps, initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
+import { extractStoragePath } from './storagePath';
 
 if (!getApps().length) initializeApp();
 
@@ -14,13 +15,6 @@ if (!getApps().length) initializeApp();
 // was actually ended. A precise endedAt field is a possible future
 // refinement if that gap matters in practice.
 const CLEANUP_AFTER_DAYS = 14;
-
-function extractStoragePath(downloadUrl: string): string | null {
-  // Firebase Storage download URLs look like:
-  // https://firebasestorage.googleapis.com/v0/b/<bucket>/o/<url-encoded-path>?alt=media&token=...
-  const match = downloadUrl.match(/\/o\/([^?]+)/);
-  return match ? decodeURIComponent(match[1]) : null;
-}
 
 export const cleanupExpiredFlyers = onSchedule('every day 03:00', async () => {
   const db = getFirestore();

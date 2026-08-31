@@ -1,7 +1,9 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import {
   createUserWithEmailAndPassword,
+  EmailAuthProvider,
   onAuthStateChanged,
+  reauthenticateWithCredential,
   sendEmailVerification,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
@@ -10,7 +12,8 @@ import {
   type User,
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { auth, db } from '../firebase/app';
+import { httpsCallable } from 'firebase/functions';
+import { auth, db, functions } from '../firebase/app';
 import { uploadImage } from '../firebase/upload';
 import type { OrganizerProfile } from './types';
 
@@ -26,6 +29,7 @@ interface AuthContextValue {
   resetPassword: (email: string) => Promise<void>;
   resendVerificationEmail: () => Promise<void>;
   refreshEmailVerified: () => Promise<void>;
+  deleteAccount: (password: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -143,6 +147,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await sendEmailVerification(auth.currentUser);
   }, []);
 
+  // Re-authenticates with the given password first (this is an irreversible
+  // action, and the client's cached sign-in could be stale/hijacked), then
+  // has the deleteAccount Cloud Function -- running with the Admin SDK, so it
+  // can cascade through Firestore/Storage in ways client-side rules never
+  // allow -- wipe every event, support thread, and file this account owns
+  // before deleting the Auth user itself.
+  const deleteAccount = useCallback(async (password: string) => {
+    const current = auth.currentUser;
+    if (!current || !current.email) throw new Error('Not signed in.');
+    const credential = EmailAuthProvider.credential(current.email, password);
+    await reauthenticateWithCredential(current, credential);
+    await httpsCallable(functions, 'deleteAccount')();
+    await firebaseSignOut(auth);
+  }, []);
+
   return (
     <AuthContext.Provider
       value={{
@@ -157,6 +176,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         resetPassword,
         resendVerificationEmail,
         refreshEmailVerified,
+        deleteAccount,
       }}
     >
       {children}
