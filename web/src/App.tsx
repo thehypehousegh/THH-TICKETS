@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './data/AuthContext';
 import { RequireAuth } from './components/RequireAuth';
 import { Nav } from './components/Nav';
+import { ChatWidget } from './components/ChatWidget';
 import { Home } from './pages/Home';
 import { EventDetail } from './pages/EventDetail';
 import { Login } from './pages/Login';
@@ -33,6 +34,7 @@ export default function App() {
           <Route path="/support" element={<RequireAuth><Support /></RequireAuth>} />
           <Route path="/admin" element={<RequireAuth><Admin /></RequireAuth>} />
         </Routes>
+        <ChatWidget />
       </BrowserRouter>
     </AuthProvider>
   );

@@ -274,11 +274,46 @@ organizer can message the admin from `/support` (a general question, with a
 short static FAQ above it) or from a specific event's Manage page ("Message
 admin about this event"), and the admin sees every conversation in one inbox
 on `/admin`, replying inline — including on events they don't own, since
-they can already open and edit them. There's no AI in this loop yet; layering
-an AI-answered FAQ bot on top (like the sibling Next.js site's Groq-powered
-widget) is a natural follow-up once a provider/API key is chosen, but wasn't
-built here to avoid taking on a new paid/free third-party dependency
-unprompted.
+they can already open and edit them.
+
+### AI chat widget (Groq)
+
+A floating chat bubble on every page (`web/src/components/ChatWidget.tsx`)
+answers common questions -- creating an event, buying tickets, discounts,
+verification, payouts -- using Groq's free-tier API (`llama-3.3-70b-versatile`,
+same choice and reasoning as the sibling Next.js site's own chat widget).
+The model returns `{"reply", "escalate"}`; when `escalate` is true, or the
+visitor just wants a person, the widget offers "Talk to the admin instead",
+which hands off into the same `supportThreads` system above (signed-in
+organizers only -- a signed-out visitor is prompted to sign in/sign up
+first, since there's no anonymous-visitor identity on this site to attach a
+thread to).
+
+**Why a Cloud Function is involved**: this site is a static SPA with no
+server of its own, so the Groq API key can't live in browser code -- anyone
+could open dev tools and read it out of the bundle. `functions/` is a small
+Firebase Cloud Function (`chatSupport`, a `onCall` v2 function) that holds
+the key server-side via Firebase's Secret Manager and proxies the request;
+the browser calls it through the Firebase Functions SDK, never Groq
+directly. This is the same pattern as the sibling site's `/api/chat` route,
+just on Cloud Functions instead of a Next.js API route, since this project
+doesn't have one.
+
+**One-time setup** (needs a [Groq API key](https://console.groq.com), free
+tier):
+```
+firebase functions:secrets:set GROQ_API_KEY
+```
+(pastes/stores it securely -- never put it in a file in this repo). Then
+deploy functions along with everything else:
+```
+firebase deploy --only hosting,firestore:rules,firestore:indexes,storage,functions
+```
+Cloud Functions requires the project to be on the **Blaze (pay-as-you-go)
+plan** -- already true here since Storage needed it too. Groq's free tier
+covers this widget's low-volume traffic; there's no per-request billing
+surprise from Groq itself, only Firebase Functions' own free-tier invocation
+allowance (generous for this scale).
 
 ## Verifying tickets at the door (verifier app)
 

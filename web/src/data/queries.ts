@@ -13,7 +13,8 @@ import {
   writeBatch,
   type Unsubscribe,
 } from 'firebase/firestore';
-import { db } from '../firebase/app';
+import { httpsCallable } from 'firebase/functions';
+import { db, functions } from '../firebase/app';
 import { generateJoinCode } from './joinCode';
 import { makeCode } from '../utils/codes';
 import type {
@@ -468,4 +469,20 @@ export async function sendSupportMessage(
 
 export async function setSupportThreadStatus(threadId: string, status: 'open' | 'resolved'): Promise<void> {
   await updateDoc(doc(db, 'supportThreads', threadId), { status });
+}
+
+export interface ChatBotMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+/**
+ * Calls the chatSupport Cloud Function (functions/src/index.ts), which holds
+ * the Groq API key server-side -- this static site has no server of its own
+ * to keep a secret in, so the key can never touch the browser bundle.
+ */
+export async function askSupportBot(messages: ChatBotMessage[]): Promise<{ reply: string; escalate: boolean }> {
+  const call = httpsCallable<{ messages: ChatBotMessage[] }, { reply: string; escalate: boolean }>(functions, 'chatSupport');
+  const result = await call({ messages });
+  return result.data;
 }
