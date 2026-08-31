@@ -1,0 +1,37 @@
+@import "tailwindcss";
+
+/* THH brand tokens, matching host/src/theme/tokens.ts so the web app reads
+   as the same product as the mobile host/verifier apps. */
+@theme {
+  --color-bg: #161826;
+  --color-surface: #232532;
+  --color-surface-hi: #2b2e3f;
+  --color-text: #e9e9ed;
+  --color-text-dim: #a5a3b3;
+  --color-accent: #9184d9;
+  --color-accent2: #a7a1db;
+  --color-divider: rgba(233, 233, 237, 0.16);
+  --color-danger: #e5636b;
+  --color-good: #5fc98d;
+  --font-sans: Inter, system-ui, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, Consolas, monospace;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+}
+
+#root {
+  min-height: 100svh;
+}
+
+* {
+  box-sizing: border-box;
+}

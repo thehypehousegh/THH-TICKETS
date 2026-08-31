@@ -69,5 +69,24 @@ service cloud.firestore {
           && get(/databases/$(database)/documents/events/$(eventId)).data.hostUid == request.auth.uid;
       }
     }
+
+    // Submitted by the web app's public checkout page (no login required --
+    // anyone with an event's join code can buy a ticket to it). Each request
+    // sits as 'pending' until either the organizer manually confirms payment
+    // (Paystack isn't wired up yet -- see README.md's "Online ticket sales"
+    // section) or, once it is, a Cloud Function does the same automatically.
+    // Either way, only the event's own organizer may flip its status --
+    // never the unauthenticated buyer who created it, and never any other
+    // field.
+    match /purchaseRequests/{requestId} {
+      allow get: if true;
+      allow list: if request.auth != null && (isAdmin() || resource.data.hostUid == request.auth.uid);
+      allow create: if request.resource.data.status == 'pending'
+        && request.resource.data.hostUid ==
+          get(/databases/$(database)/documents/events/$(request.resource.data.eventId)).data.hostUid;
+      allow update: if request.auth != null && resource.data.hostUid == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+      allow delete: if false;
+    }
   }
 }

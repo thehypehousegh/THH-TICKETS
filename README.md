@@ -1,33 +1,44 @@
 # THH Tickets
 
 An e-ticketing platform for The Hype House: organizers create an event (with a
-flyer, venue, and priced ticket types), get a shareable link people can buy
-tickets from online, and door staff verify tickets live as they're scanned —
+flyer, venue, and priced ticket types), get a public listing people can browse
+and buy tickets from, and door staff verify tickets live as they're scanned —
 no export files, no manual merging, everything syncs through one shared
 Firebase backend the instant it happens.
 
 This used to be a single offline app with no server at all. It's been rebuilt
-around two small apps plus a shared cloud backend, because live syncing
-between a host and multiple door phones — and letting anyone buy a ticket
-online — both need a server somewhere; there's no way to do either fully
-offline. See "Why two apps, and why online now" below for the trade-off.
+around three apps plus a shared cloud backend, because live syncing between a
+host and multiple door phones — and letting anyone buy a ticket online — both
+need a server somewhere; there's no way to do either fully offline. See "Why
+several apps, and why online now" below for the trade-off.
 
-## The two apps
+## The three apps
 
-- **THH Tickets Host** (`/host`) — for the event organizer. Requires an
-  account (email + password, created in-app). Creates events, sets ticket
-  prices, generates manual/walk-in codes, scans at the door, exports a PDF
-  report, and gets each event's shareable purchase link and door-verifier
-  event code.
-- **THH Tickets Verifier** (`/verifier`) — for anyone helping check tickets
-  at the door. No account, no sign-up — just enter the event's code (from the
-  host) and it shows that event's tickets live, ready to scan or search.
-  Deliberately small: no event creation, no pricing, no PDF export, nothing
-  a verifier doesn't need.
+- **THH Tickets Host** (`/host`, Android/iOS via Expo) — for the event
+  organizer. Requires an account (email + password, created in-app). Creates
+  events, sets ticket prices, generates manual/walk-in codes, scans at the
+  door, exports a PDF report, and gets each event's shareable purchase link
+  and door-verifier event code.
+- **THH Tickets Verifier** (`/verifier`, Android/iOS via Expo) — for anyone
+  helping check tickets at the door. No account, no sign-up — just enter the
+  event's code (from the host) and it shows that event's tickets live, ready
+  to scan or search. Deliberately small: no event creation, no pricing, no
+  PDF export, nothing a verifier doesn't need.
+- **THH Events** (`/web`, a browser-based site — see "Deploying THH Events"
+  below) — the public face of the platform: browse/search every published
+  event, view one and buy tickets, and an organizer dashboard covering
+  everything the host app does (create/edit/publish/end/delete events,
+  discounts, manual/comp codes, patron list, payout profile) plus a
+  **web verifier** at `/verify` that does the same job as the Verifier app
+  with nothing to install — the fix for door staff on iPhones, where a
+  direct-install APK isn't an option. Sign up/log in here is the *same*
+  organizer account as the host app; an event created on either one shows up
+  on both and on the public Events page the instant it's published.
 
-Both apps talk to the same Firebase project, so a code generated on the host
-phone or bought online shows up on every verifier phone within moments, and a
-check-in from any phone shows up everywhere else the same way.
+All three talk to the same Firebase project, so a code generated on the host
+phone, on the web dashboard, or bought online shows up on every verifier
+(app or web) within moments, and a check-in from any of them shows up
+everywhere else the same way.
 
 ## Get it on your phone
 
@@ -52,7 +63,28 @@ account ($99/year) — without one, running either app on iPhone means someone
 with the code checked out runs `npx expo start` (from inside `host/` or
 `verifier/`) and the phone runs it live through the free **Expo Go** app.
 
-## Why two apps, and why online now
+## Deploying THH Events (`/web`)
+
+The web app is a static Vite/React build talking directly to Firestore/Auth/
+Storage from the browser (same `firebaseConfig` as the two mobile apps, in
+`web/src/firebase/config.ts`) — no server of its own beyond Firebase itself,
+so it deploys as static files to Firebase Hosting:
+
+```
+cd web && npm install && npm run build && cd ..
+firebase login          # once, interactively
+firebase deploy --only hosting,firestore:rules,storage:rules
+```
+
+`firebase.json` and `.firebaserc` at the repo root already point Hosting at
+`web/dist` and the deploy at the `thh-tickets` project. The default Hosting
+URL is `https://thh-tickets.web.app` — that's also what
+`host/src/utils/links.ts`'s `PUBLIC_SITE_BASE_URL` is set to, so the host
+app's Share Event button and public purchase links resolve correctly once
+this is live. Update that constant (and re-deploy the host app) if a custom
+domain is attached later.
+
+## Why several apps, and why online now
 
 The original version of this app was fully offline: no server, no accounts,
 everything lived only on each phone, moved between phones by exporting and
@@ -78,8 +110,9 @@ anything. That's the deliberate cost of getting live sync and online sales.
 
 ## Setting up the Firebase backend (one-time, for whoever runs this)
 
-Both apps need the *same* Firebase project's config dropped into
-`host/src/firebase/config.ts` and `verifier/src/firebase/config.ts`:
+All three apps need the *same* Firebase project's config dropped into
+`host/src/firebase/config.ts`, `verifier/src/firebase/config.ts`, and
+`web/src/firebase/config.ts`:
 
 1. [console.firebase.google.com](https://console.firebase.google.com) → **Add
    project**.
@@ -107,28 +140,32 @@ The `firebaseConfig` values are safe to commit even in this **public** repo —
 Firebase's security model is enforced by the rules in step 6, not by keeping
 the config secret.
 
-## Online ticket sales (not wired up yet)
+## Online ticket sales (checkout page live, payment not wired up yet)
 
-The data model already has a place for this — ticket prices are set per type
-when an event is created, `EventDetailScreen` shows a purchase link, and a
-draft/published/ended status plus discount codes are ready for a checkout
-flow to use — but two pieces still need real-world setup before anyone can
-actually pay for a ticket:
+THH Events (`/web`) has the public purchase page: flyer, event summary,
+ticket picker, a discount code field, and a form for the buyer's name,
+contact, and optional email. Submitting it writes a `purchaseRequests`
+document (see `web/src/data/queries.ts`'s `submitPurchaseRequest` and the
+`purchaseRequests` block in `/firestore.rules`) — it does **not** issue a
+ticket code yet, because payment status is never trusted from the buyer's
+browser alone. Until Paystack is wired up, the organizer sees each pending
+request under "Pending orders" on that event's Manage page, confirms payment
+with the buyer directly (by phone/MoMo), and clicks "Confirm & issue codes",
+which generates the same kind of code the manual Generate flow does, tagged
+`source: 'online'`.
+
+What's still needed to automate that last step:
 
 - **Payment**: a real Paystack account (cards + Mobile Money) under the
   organizer's business, with API keys handed over so a server-side function
-  can verify each payment before a ticket is issued. Payment status is never
-  trusted from the buyer's browser alone — that's how someone would get a
-  free ticket.
-- **The public purchase page itself**: a small web page (flyer, event
-  summary, organizer info, ticket picker, an optional discount code field,
-  and a form for the buyer's name, contact, and optional email before
-  Paystack checkout) hosted via Firebase Hosting, plus a Cloud Function to
-  verify Paystack's webhook, apply any discount, and create the ticket.
-  Neither exists yet. The buyer's name/contact/email are meant to land on
-  the resulting batch exactly like the host app's manual Generate screen
-  already captures them today, so the PDF report and patron follow-up work
-  the same regardless of how a code was issued.
+  can verify each payment before a ticket is issued.
+- **A Cloud Function**: triggered on a `purchaseRequests` create (or a
+  Paystack webhook), it verifies the payment, then does exactly what the
+  organizer's "Confirm & issue codes" button does today, but automatically —
+  using the Admin SDK, which is the only thing that can also flip a request's
+  status to `paid` on the buyer's behalf (the rules only let the organizer
+  do that by hand right now). Once this exists, the manual "Pending orders"
+  panel becomes a fallback for edge cases rather than the primary path.
 
 **USSD** (`*XXX#` style purchase) is a further step beyond that, and isn't
 something any app or Firebase project can provision on its own — it requires
@@ -245,7 +282,8 @@ after-the-event merge to do.
 ## Stack
 
 - **Expo (React Native) + TypeScript**, two independent apps (`host/`,
-  `verifier/`) sharing one Firebase project.
+  `verifier/`), plus **Vite + React + TypeScript + Tailwind** for the web app
+  (`web/`) — all three sharing one Firebase project.
 - **Firebase Auth** — email/password for the host app; silent anonymous
   sign-in for the verifier app (no UI, just enough for Firestore's rules to
   require *some* token on writes).
@@ -278,13 +316,19 @@ after-the-event merge to do.
 - `host/src/utils/eventTiming.ts` — the plain-language timing badge
   (`Today`, `3 days more`, `Ongoing`, `Completed`, `Ended`, …) shown on
   event cards and the event detail page.
-- `host/src/utils/links.ts` — builds an event's public purchase URL; update
-  `PUBLIC_SITE_BASE_URL` once the purchase site (see "Online ticket sales
-  (not wired up yet)") is deployed.
+- `host/src/utils/links.ts` — builds an event's public purchase URL, pointed
+  at `PUBLIC_SITE_BASE_URL` (THH Events, see "Deploying THH Events" above).
 - `host/src/utils/stats.ts` — the event dashboard's paid/self-generated/
   verified breakdown, computed from live batches+codes (a batch's `source`
   field is `'online'` for a purchase or `'manual'` for anything the host
   typed in on the Generate screen).
+- `web/src/pages/` — Home (public browse), EventDetail (public + checkout),
+  Login/Signup, Dashboard (organizer's own events), EventForm (create/edit,
+  shared), EventManage (stats, pending orders, generate codes, discounts,
+  patrons), Verify (web verifier — join by code, scan or search, check
+  in/undo), Admin, Profile. `web/src/data/` and `web/src/utils/` mirror
+  `host/src/data` and `host/src/utils` 1:1 so all three apps agree on the
+  data model and formatting logic.
 - `verifier/src/` — deliberately small: `data/eventSync.ts` (join +
   live batches/codes + check-in write), `screens/JoinScreen.tsx`,
   `VerifyScreen.tsx`, `ScanScreen.tsx`. No custom fonts, no navigation
