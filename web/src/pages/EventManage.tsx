@@ -246,11 +246,26 @@ function Discounts({ event, discounts }: { event: EventRecord; discounts: Discou
   const [kind, setKind] = useState<DiscountKind>('earlybird');
   const [valueType, setValueType] = useState<DiscountValueType>('percent');
   const [value, setValue] = useState('10');
+  const [expiresAt, setExpiresAt] = useState('');
+  const [showPublicly, setShowPublicly] = useState(false);
+  const [publicInfo, setPublicInfo] = useState('');
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    await createDiscount(event.id, { code, kind, valueType, value: Number(value) || 0, ticketTypeIds: [] });
+    await createDiscount(event.id, {
+      code,
+      kind,
+      valueType,
+      value: Number(value) || 0,
+      ticketTypeIds: [],
+      expiresAt: expiresAt || null,
+      showPublicly,
+      publicInfo: showPublicly && publicInfo.trim() ? publicInfo.trim() : null,
+    });
     setCode('');
+    setExpiresAt('');
+    setShowPublicly(false);
+    setPublicInfo('');
   }
 
   return (
@@ -270,6 +285,22 @@ function Discounts({ event, discounts }: { event: EventRecord; discounts: Discou
           </select>
         </Field>
         <Field label="Value"><Input type="number" value={value} onChange={(e) => setValue(e.target.value)} /></Field>
+        <Field label="Expires (blank = never)">
+          <Input type="date" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} />
+        </Field>
+        <label className="flex items-center gap-2 self-end pb-2.5 text-sm text-text sm:col-span-3">
+          <input type="checkbox" checked={showPublicly} onChange={(e) => setShowPublicly(e.target.checked)} className="h-4 w-4" />
+          Advertise this discount publicly, near ticket pricing on the event page
+        </label>
+        {showPublicly && (
+          <Field label="Promo text shown to visitors" className="sm:col-span-4">
+            <Input
+              value={publicInfo}
+              onChange={(e) => setPublicInfo(e.target.value)}
+              placeholder='e.g. "Early Bird -- 20% off, first 50 tickets only"'
+            />
+          </Field>
+        )}
         <Button type="submit" className="sm:col-span-4 sm:self-start">Create discount</Button>
       </form>
 
@@ -278,7 +309,11 @@ function Discounts({ event, discounts }: { event: EventRecord; discounts: Discou
           <div key={d.id} className="flex items-center justify-between gap-2 rounded-lg border border-divider p-3">
             <div>
               <p className="font-mono text-sm text-text">{d.code}</p>
-              <p className="text-xs text-text-dim">{d.kind} · {d.valueType === 'percent' ? `${d.value}%` : `GHS ${d.value}`}</p>
+              <p className="text-xs text-text-dim">
+                {d.kind} · {d.valueType === 'percent' ? `${d.value}%` : `GHS ${d.value}`}
+                {d.expiresAt ? ` · expires ${d.expiresAt}` : ' · no expiry'}
+                {d.showPublicly ? ' · advertised publicly' : ''}
+              </p>
             </div>
             <div className="flex gap-2">
               <Button variant="secondary" onClick={() => setDiscountActive(event.id, d.id, !d.active)}>

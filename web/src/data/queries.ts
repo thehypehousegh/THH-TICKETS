@@ -170,6 +170,16 @@ export async function generateCodes(
   return { id: batchRef.id, eventId: event.id, person, contact, email, source, createdAt, codes };
 }
 
+/** Looks up one issued code by its value within a specific event -- used by
+ * the public /ticket/:eventId/:code QR-view page (see TicketView.tsx). Scoped
+ * to one event's own codes subcollection, same rule as everything else under
+ * events/{eventId}/codes (`allow get, list: if true`) -- no new access is
+ * opened up by this query. */
+export async function getCodeByValue(eventId: string, code: string): Promise<CodeRecord | null> {
+  const snap = await getDocs(query(collection(db, 'events', eventId, 'codes'), where('code', '==', code)));
+  return snap.empty ? null : (snap.docs[0].data() as CodeRecord);
+}
+
 export async function deleteCode(eventId: string, batchId: string, codeId: string): Promise<void> {
   await deleteDoc(doc(db, 'events', eventId, 'codes', codeId));
   const remaining = await getDocs(query(collection(db, 'events', eventId, 'codes'), where('batchId', '==', batchId)));
@@ -252,6 +262,9 @@ export interface NewDiscountInput {
   valueType: DiscountValueType;
   value: number;
   ticketTypeIds: string[];
+  expiresAt: string | null;
+  showPublicly: boolean;
+  publicInfo: string | null;
 }
 
 export async function createDiscount(eventId: string, input: NewDiscountInput): Promise<DiscountRecord> {
@@ -265,10 +278,21 @@ export async function createDiscount(eventId: string, input: NewDiscountInput): 
     value: input.value,
     ticketTypeIds: input.ticketTypeIds,
     active: true,
+    expiresAt: input.expiresAt,
+    showPublicly: input.showPublicly,
+    publicInfo: input.publicInfo,
     createdAt: new Date().toISOString(),
   };
   await setDoc(ref, record);
   return record;
+}
+
+/** A discount is usable if it's active and, when it has an expiry date,
+ * that date hasn't fully elapsed yet (valid through 23:59 on expiresAt). */
+export function isDiscountUsable(d: Pick<DiscountRecord, 'active' | 'expiresAt'>, now = new Date()): boolean {
+  if (!d.active) return false;
+  if (!d.expiresAt) return true;
+  return new Date(`${d.expiresAt}T23:59:59`).getTime() >= now.getTime();
 }
 
 export async function setDiscountActive(eventId: string, discountId: string, active: boolean): Promise<void> {
@@ -289,8 +313,19 @@ export async function findDiscountByCode(eventId: string, code: string): Promise
   const snap = await getDocs(
     query(collection(db, 'events', eventId, 'discounts'), where('code', '==', code.trim().toUpperCase()))
   );
-  const match = snap.docs.find((d) => (d.data() as DiscountRecord).active);
-  return match ? (match.data() as DiscountRecord) : null;
+  const match = snap.docs.map((d) => d.data() as DiscountRecord).find((d) => isDiscountUsable(d));
+  return match ?? null;
+}
+
+/** Active, non-expired, organizer-opted-in-to-advertise discounts for the
+ * public event page's promo blurb near ticket pricing. The discount code
+ * itself still works for anyone holding it even when this returns nothing
+ * -- showPublicly only controls whether it's advertised. */
+export async function getPublicDiscounts(eventId: string): Promise<DiscountRecord[]> {
+  const snap = await getDocs(
+    query(collection(db, 'events', eventId, 'discounts'), where('showPublicly', '==', true))
+  );
+  return snap.docs.map((d) => d.data() as DiscountRecord).filter((d) => isDiscountUsable(d));
 }
 
 /** Super-admin only (see /firestore.rules) -- every event on the platform,

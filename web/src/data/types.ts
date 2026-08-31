@@ -118,6 +118,18 @@ export interface DiscountRecord {
   value: number; // percent (0-100) or a flat GHS amount, per valueType
   ticketTypeIds: string[]; // empty = applies to every ticket type on the event
   active: boolean;
+  /** YYYY-MM-DD, or null for a discount that never expires. Valid through
+   * the end of this date. A code past its expiry no longer applies, even if
+   * `active` is still true -- expiry is a separate, automatic cutoff. */
+  expiresAt: string | null;
+  /** Whether to surface this discount's promo blurb on the public event
+   * page, near ticket pricing. The code itself still works either way --
+   * this only controls whether non-holders are told about it. */
+  showPublicly: boolean;
+  /** Free text the organizer writes for the public promo blurb, e.g. "Early
+   * bird -- 20% off, first 50 tickets only". Only shown when showPublicly is
+   * true; a blank value falls back to an auto-generated line. */
+  publicInfo: string | null;
   createdAt: string;
 }
 

@@ -18,6 +18,7 @@ import { Admin } from './pages/Admin';
 import { Profile } from './pages/Profile';
 import { Support } from './pages/Support';
 import { Privacy } from './pages/Privacy';
+import { TicketView } from './pages/TicketView';
 
 export default function App() {
   return (
@@ -41,6 +42,7 @@ export default function App() {
               <Route path="/support" element={<RequireAuth><Support /></RequireAuth>} />
               <Route path="/admin" element={<RequireAuth><Admin /></RequireAuth>} />
               <Route path="/privacy" element={<Privacy />} />
+              <Route path="/ticket/:eventId/:code" element={<TicketView />} />
             </Routes>
             <footer className="mx-auto max-w-6xl px-4 py-6 text-center text-xs text-text-dim">
               <Link to="/privacy" className="hover:text-text hover:underline">Privacy policy</Link>

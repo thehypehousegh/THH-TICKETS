@@ -207,12 +207,18 @@ is configured for this deployment:
 4. Start with your **test** keys end-to-end (Paystack's test cards are in
    their docs) before switching `web/.env` and the secret to your live keys.
 
-**USSD** (`*XXX#` style purchase) is a further step beyond that, and isn't
-something any app or Firebase project can provision on its own — it requires
-a real relationship with a telecom/USSD aggregator (e.g. Hubtel, Nsano,
-Wigal in Ghana), usually a shared short code with a menu path, and typically
-some paperwork/fees. There's a `ussdShortCode` field already reserved on the
-event record for whenever that's set up.
+### SMS ticket delivery (prepared, not yet live)
+
+Every issued ticket (manual, comp, or Paystack-verified) already gets a
+public, no-login QR view page at `/ticket/{eventId}/{code}` (`TicketView.tsx`)
+-- linked from the on-screen payment confirmation today via "View QR". A
+Cloud Function, `onBatchCreatedSendSms` (`functions/src/sms.ts`), fires on
+every new batch and logs exactly what an SMS would say (the code(s) plus that
+QR link) -- **no SMS actually sends yet**, since that needs a real provider
+account (Twilio, Hubtel, Africa's Talking, and others all work in Ghana).
+Wiring one up later is a one-file change: replace the `console.log` in that
+function with a real API call, using a secret set the same way
+`GROQ_API_KEY`/`PAYSTACK_SECRET_KEY` are (`firebase functions:secrets:set`).
 
 **USSD** (`*XXX#` style purchase) is a further step beyond that, and isn't
 something any app or Firebase project can provision on its own — it requires
@@ -289,11 +295,23 @@ From an event's page → **Discounts** → **New discount**: pick a category
 (Early bird / Special sale / Group / Combo / Other — these are just labels
 for your own reference, every discount works the same way underneath), a
 code (or leave it blank to auto-generate one), whether it's a **percentage**
-or a **flat GHS amount** off, and which ticket type(s) it applies to (leave
-none selected to apply it to every type on the event). Buyers will enter this
-code at checkout once the public purchase page exists (see below) to get the
-discount applied. Pause (without deleting) or delete a discount any time —
-changes apply immediately since discounts are read live at checkout.
+or a **flat GHS amount** off, which ticket type(s) it applies to (leave none
+selected to apply it to every type on the event), and an optional
+**expiry date** — leave it blank for a discount that never expires. Past its
+expiry date, a code stops working automatically (both at checkout and in the
+Paystack verification function), even if it's still marked Active; Active
+vs. expired are two independent switches; a discount needs both to apply.
+Pause (without deleting) or delete a discount any time — changes apply
+immediately since discounts are read live at checkout.
+
+**Advertise this discount publicly** is off by default — turn it on to write
+a short promo blurb (e.g. "Early Bird -- 20% off, first 50 tickets only")
+that appears on the public event page, near ticket pricing, for anyone
+browsing (not just people who already have the code). Leaving it off keeps
+the discount working exactly the same for anyone who already has the code —
+it just isn't advertised to the general public. Leave the blurb blank while
+"advertise publicly" is on and a generic line (kind + percentage/amount off)
+is shown instead.
 
 ## Super-admin access
 

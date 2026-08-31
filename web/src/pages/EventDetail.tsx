@@ -1,11 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { getEvent, getOrganizer, findDiscountByCode, submitPurchaseRequest, verifyPaystackPayment, type PaidOrder } from '../data/queries';
+import { useParams, Link } from 'react-router-dom';
+import { getEvent, getOrganizer, getPublicDiscounts, findDiscountByCode, submitPurchaseRequest, verifyPaystackPayment, type PaidOrder } from '../data/queries';
 import { describeEventTiming } from '../utils/eventTiming';
 import { longWhen } from '../utils/codes';
 import { PAYSTACK_PUBLIC_KEY, payWithPaystack, generatePaystackReference } from '../paystack';
 import { Button, Card, Field, Input } from '../components/ui';
 import type { DiscountRecord, EventRecord, OrganizerProfile, PurchaseRequestItem } from '../data/types';
+
+function formatExpiry(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
 
 function venueMapEmbedUrl(pin: { lat: number; lng: number }): string {
   const d = 0.01;
@@ -23,6 +28,7 @@ export function EventDetail() {
   const [loading, setLoading] = useState(true);
   const [organizer, setOrganizer] = useState<OrganizerProfile | null>(null);
   const [showMore, setShowMore] = useState(false);
+  const [publicDiscounts, setPublicDiscounts] = useState<DiscountRecord[]>([]);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [buyerName, setBuyerName] = useState('');
   const [buyerContact, setBuyerContact] = useState('');
@@ -42,7 +48,10 @@ export function EventDetail() {
     getEvent(eventId)
       .then((e) => {
         setEvent(e);
-        if (e) getOrganizer(e.hostUid).then(setOrganizer).catch(() => setOrganizer(null));
+        if (e) {
+          getOrganizer(e.hostUid).then(setOrganizer).catch(() => setOrganizer(null));
+          getPublicDiscounts(e.id).then(setPublicDiscounts).catch(() => setPublicDiscounts([]));
+        }
       })
       .finally(() => setLoading(false));
   }, [eventId]);
@@ -192,9 +201,14 @@ export function EventDetail() {
                 <p>Payment received -- here {paidOrder.codes.length === 1 ? 'is your ticket code' : 'are your ticket codes'}:</p>
                 <div className="flex flex-col gap-1.5">
                   {paidOrder.codes.map((c) => (
-                    <div key={c.id} className="flex items-center justify-between rounded-lg border border-good/30 bg-surface px-3 py-2 font-mono text-text">
+                    <div key={c.id} className="flex items-center justify-between gap-2 rounded-lg border border-good/30 bg-surface px-3 py-2 font-mono text-text">
                       <span>{c.code}</span>
-                      <span className="text-xs text-text-dim">{c.type}</span>
+                      <span className="flex items-center gap-2">
+                        <span className="text-xs text-text-dim">{c.type}</span>
+                        <Link to={`/ticket/${event.id}/${c.code}`} target="_blank" className="text-xs font-sans font-medium text-accent2 hover:underline">
+                          View QR
+                        </Link>
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -210,6 +224,13 @@ export function EventDetail() {
           </div>
         ) : (
           <>
+            {publicDiscounts.map((d) => (
+              <div key={d.id} className="rounded-lg border border-warm/30 bg-warm/10 px-3 py-2 text-sm text-warm">
+                {d.publicInfo || `${d.kind === 'earlybird' ? 'Early Bird' : d.kind[0].toUpperCase() + d.kind.slice(1)} discount -- ${d.valueType === 'percent' ? `${d.value}% off` : `GHS ${d.value} off`}`}
+                {d.expiresAt && <> · expires {formatExpiry(d.expiresAt)}</>}
+              </div>
+            ))}
+
             <div className="flex flex-col gap-2">
               {event.ticketTypes.map((t) => (
                 <div key={t.id} className="flex items-center justify-between gap-3 rounded-lg border border-divider p-3">

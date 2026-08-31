@@ -35,6 +35,17 @@ interface DiscountRecord {
   value: number;
   ticketTypeIds: string[];
   active: boolean;
+  expiresAt: string | null;
+}
+
+// Kept in sync with web/src/data/queries.ts's isDiscountUsable -- a code
+// stops applying once its expiry date has fully elapsed, even if `active`
+// is still true (expiry is a separate, automatic cutoff a client can't
+// override by just resubmitting the same code after it lapses).
+function isDiscountUsable(d: DiscountRecord, now = new Date()): boolean {
+  if (!d.active) return false;
+  if (!d.expiresAt) return true;
+  return new Date(`${d.expiresAt}T23:59:59`).getTime() >= now.getTime();
 }
 
 interface EventDoc extends EventLike {
@@ -111,7 +122,7 @@ export const verifyPaystackPayment = onCall({ secrets: [paystackSecretKey] }, as
       .collection('discounts')
       .where('code', '==', data.discountCode.trim().toUpperCase())
       .get();
-    const discount = discountsSnap.docs.map((d) => d.data() as DiscountRecord).find((d) => d.active);
+    const discount = discountsSnap.docs.map((d) => d.data() as DiscountRecord).find((d) => isDiscountUsable(d));
     if (discount) {
       const applicable = resolvedItems.filter(
         (i) => discount.ticketTypeIds.length === 0 || discount.ticketTypeIds.includes(i.ticketTypeId)

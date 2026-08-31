@@ -67,9 +67,9 @@ export function Textarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   );
 }
 
-export function Field({ label, children }: { label: string; children: ReactNode }) {
+export function Field({ label, children, className = '' }: { label: string; children: ReactNode; className?: string }) {
   return (
-    <label className="flex flex-col gap-1.5 text-left">
+    <label className={`flex flex-col gap-1.5 text-left ${className}`}>
       <span className="text-xs font-medium text-text-dim">{label}</span>
       {children}
     </label>
