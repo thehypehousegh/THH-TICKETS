@@ -160,32 +160,59 @@ address out of the box; **Authentication → Templates** in the console lets
 you customize the sender name/from-address and email copy later if wanted,
 but nothing further is required for either to work today.
 
-## Online ticket sales (checkout page live, payment not wired up yet)
+## Online ticket sales (Paystack)
 
 THH Events (`/web`) has the public purchase page: flyer, event summary,
 ticket picker, a discount code field, and a form for the buyer's name,
-contact, and optional email. Submitting it writes a `purchaseRequests`
-document (see `web/src/data/queries.ts`'s `submitPurchaseRequest` and the
-`purchaseRequests` block in `/firestore.rules`) — it does **not** issue a
-ticket code yet, because payment status is never trusted from the buyer's
-browser alone. Until Paystack is wired up, the organizer sees each pending
-request under "Pending orders" on that event's Manage page, confirms payment
-with the buyer directly (by phone/MoMo), and clicks "Confirm & issue codes",
-which generates the same kind of code the manual Generate flow does, tagged
-`source: 'online'`.
+contact, and email. What happens on "Checkout" depends on whether Paystack
+is configured for this deployment:
 
-What's still needed to automate that last step:
+- **Paystack configured** (see setup below): the button reads "Pay with
+  Paystack" and opens Paystack's popup (cards + Mobile Money, in Paystack
+  Ghana's own checkout). On success, the browser calls the
+  `verifyPaystackPayment` Cloud Function (`functions/src/paystack.ts`) with
+  the transaction reference — nothing about the price or "it succeeded" is
+  ever trusted from the browser. That function independently re-verifies the
+  transaction with Paystack's own API using the secret key, **recomputes the
+  order total itself** from the event's own ticket types and discount (so a
+  tampered client can't pay less than the real price), and only then issues
+  the ticket codes — tagged `source: 'online'`, same shape the manual
+  Generate flow produces. The codes are shown on-screen immediately; sending
+  them by email too is a possible future addition (no email-delivery
+  pipeline exists yet beyond Firebase Auth's own account emails). Re-sending
+  the same reference (e.g. a flaky connection retries the call) returns the
+  original codes instead of issuing a second set — see the `paidOrders`
+  collection, keyed by reference, in that function.
+- **Not configured**: the button reads "Checkout" and writes a
+  `purchaseRequests` document instead (see `submitPurchaseRequest` in
+  `web/src/data/queries.ts`) — no code is issued yet. The organizer sees it
+  under "Pending orders" on that event's Manage page, confirms payment with
+  the buyer directly, and clicks "Confirm & issue codes". This remains a
+  useful fallback even once Paystack is live (e.g. a cash-at-the-door
+  arrangement made outside the app).
 
-- **Payment**: a real Paystack account (cards + Mobile Money) under the
-  organizer's business, with API keys handed over so a server-side function
-  can verify each payment before a ticket is issued.
-- **A Cloud Function**: triggered on a `purchaseRequests` create (or a
-  Paystack webhook), it verifies the payment, then does exactly what the
-  organizer's "Confirm & issue codes" button does today, but automatically —
-  using the Admin SDK, which is the only thing that can also flip a request's
-  status to `paid` on the buyer's behalf (the rules only let the organizer
-  do that by hand right now). Once this exists, the manual "Pending orders"
-  panel becomes a fallback for edge cases rather than the primary path.
+### Setting it up
+
+1. In the [Paystack dashboard](https://dashboard.paystack.com/#/settings/developers),
+   grab your **public key** (`pk_test_...` or `pk_live_...`) and **secret
+   key** (`sk_test_...` or `sk_live_...`).
+2. Public key, client-side, safe to expose by design: copy `web/.env.example`
+   to `web/.env` and set `VITE_PAYSTACK_PUBLIC_KEY` to it. Rebuild
+   (`npm run build`) and redeploy hosting for it to take effect.
+3. Secret key, server-side only, must never reach the browser:
+   ```
+   echo "<paste your Paystack secret key here>" | firebase functions:secrets:set PAYSTACK_SECRET_KEY --data-file -
+   firebase deploy --only functions
+   ```
+4. Start with your **test** keys end-to-end (Paystack's test cards are in
+   their docs) before switching `web/.env` and the secret to your live keys.
+
+**USSD** (`*XXX#` style purchase) is a further step beyond that, and isn't
+something any app or Firebase project can provision on its own — it requires
+a real relationship with a telecom/USSD aggregator (e.g. Hubtel, Nsano,
+Wigal in Ghana), usually a shared short code with a menu path, and typically
+some paperwork/fees. There's a `ussdShortCode` field already reserved on the
+event record for whenever that's set up.
 
 **USSD** (`*XXX#` style purchase) is a further step beyond that, and isn't
 something any app or Firebase project can provision on its own — it requires

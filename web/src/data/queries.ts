@@ -498,3 +498,34 @@ export async function askSupportBot(messages: ChatBotMessage[]): Promise<{ reply
   const result = await call({ messages });
   return result.data;
 }
+
+export interface PaidOrder {
+  batchId: string;
+  eventId: string;
+  amount: number;
+  createdAt: string;
+  codes: { id: string; code: string; type: string; usedAt: null; usedBy: null }[];
+}
+
+interface VerifyPaystackPaymentInput {
+  reference: string;
+  eventId: string;
+  buyerName: string;
+  buyerContact: string;
+  buyerEmail: string;
+  items: { ticketTypeId: string; quantity: number }[];
+  discountCode: string | null;
+}
+
+/**
+ * Calls the verifyPaystackPayment Cloud Function (functions/src/paystack.ts),
+ * which independently re-checks the transaction with Paystack's secret key
+ * and recomputes the price from the event's own data before issuing any
+ * codes -- the price/quantity/"it succeeded" claims from the client (and
+ * from Paystack's own client-side callback) are never trusted on their own.
+ */
+export async function verifyPaystackPayment(input: VerifyPaystackPaymentInput): Promise<PaidOrder> {
+  const call = httpsCallable<VerifyPaystackPaymentInput, PaidOrder>(functions, 'verifyPaystackPayment');
+  const result = await call(input);
+  return result.data;
+}

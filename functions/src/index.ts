@@ -3,6 +3,7 @@ import { defineSecret } from 'firebase-functions/params';
 
 export { cleanupExpiredFlyers } from './cleanupFlyers';
 export { deleteAccount } from './deleteAccount';
+export { verifyPaystackPayment } from './paystack';
 
 const groqApiKey = defineSecret('GROQ_API_KEY');
 

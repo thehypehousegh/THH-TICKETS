@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { getEvent, findDiscountByCode, submitPurchaseRequest } from '../data/queries';
+import { getEvent, findDiscountByCode, submitPurchaseRequest, verifyPaystackPayment, type PaidOrder } from '../data/queries';
 import { describeEventTiming } from '../utils/eventTiming';
 import { longWhen } from '../utils/codes';
+import { PAYSTACK_PUBLIC_KEY, payWithPaystack, generatePaystackReference } from '../paystack';
 import { Button, Card, Field, Input } from '../components/ui';
 import type { DiscountRecord, EventRecord, PurchaseRequestItem } from '../data/types';
 
@@ -19,7 +20,10 @@ export function EventDetail() {
   const [discountError, setDiscountError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
+  const [paidOrder, setPaidOrder] = useState<PaidOrder | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const paystackEnabled = Boolean(PAYSTACK_PUBLIC_KEY);
 
   useEffect(() => {
     if (!eventId) return;
@@ -61,13 +65,34 @@ export function EventDetail() {
 
   async function handleCheckout() {
     if (!event || items.length === 0 || !buyerName.trim() || !buyerContact.trim()) return;
+    if (paystackEnabled && !buyerEmail.trim()) return;
     setSubmitting(true);
     setError(null);
     try {
-      await submitPurchaseRequest(event, buyerName.trim(), buyerContact.trim(), buyerEmail.trim(), items, discount?.code ?? null, total);
+      if (paystackEnabled) {
+        const reference = generatePaystackReference();
+        await payWithPaystack({
+          email: buyerEmail.trim(),
+          amountGHS: total,
+          reference,
+          metadata: { eventId: event.id, eventName: event.name },
+        });
+        const order = await verifyPaystackPayment({
+          reference,
+          eventId: event.id,
+          buyerName: buyerName.trim(),
+          buyerContact: buyerContact.trim(),
+          buyerEmail: buyerEmail.trim(),
+          items: items.map((i) => ({ ticketTypeId: i.ticketTypeId, quantity: i.quantity })),
+          discountCode: discount?.code ?? null,
+        });
+        setPaidOrder(order);
+      } else {
+        await submitPurchaseRequest(event, buyerName.trim(), buyerContact.trim(), buyerEmail.trim(), items, discount?.code ?? null, total);
+      }
       setConfirmed(true);
-    } catch {
-      setError('Could not submit your order. Please try again.');
+    } catch (err) {
+      setError(err instanceof Error && err.message === 'Payment cancelled.' ? 'Payment was cancelled.' : 'Could not complete your order. Please try again -- if you were charged, contact the organizer with your payment reference.');
     } finally {
       setSubmitting(false);
     }
@@ -98,8 +123,26 @@ export function EventDetail() {
           <p className="text-text-dim">Ticket sales are closed for this event.</p>
         ) : confirmed ? (
           <div className="rounded-lg border border-good/30 bg-good/10 p-4 text-sm text-good">
-            Order received. Online payment isn't wired up yet, so the organizer will reach out via{' '}
-            {buyerContact || buyerEmail} to confirm and issue your ticket code(s).
+            {paidOrder ? (
+              <div className="flex flex-col gap-3">
+                <p>Payment received -- here {paidOrder.codes.length === 1 ? 'is your ticket code' : 'are your ticket codes'}:</p>
+                <div className="flex flex-col gap-1.5">
+                  {paidOrder.codes.map((c) => (
+                    <div key={c.id} className="flex items-center justify-between rounded-lg border border-good/30 bg-surface px-3 py-2 font-mono text-text">
+                      <span>{c.code}</span>
+                      <span className="text-xs text-text-dim">{c.type}</span>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-text-dim">
+                  Screenshot or write these down -- show one at the door for each person. A receipt was also sent
+                  to {buyerEmail} by Paystack.
+                </p>
+              </div>
+            ) : (
+              <>Order received. Online payment isn't wired up yet, so the organizer will reach out via{' '}
+              {buyerContact || buyerEmail} to confirm and issue your ticket code(s).</>
+            )}
           </div>
         ) : (
           <>
@@ -135,8 +178,14 @@ export function EventDetail() {
               <Field label="Contact (phone)">
                 <Input value={buyerContact} onChange={(e) => setBuyerContact(e.target.value)} placeholder="0XX XXX XXXX" />
               </Field>
-              <Field label="Email (optional -- ticket code sent here too)">
-                <Input value={buyerEmail} onChange={(e) => setBuyerEmail(e.target.value)} placeholder="you@example.com" type="email" />
+              <Field label={paystackEnabled ? 'Email (required for payment receipt)' : 'Email (optional -- ticket code sent here too)'}>
+                <Input
+                  value={buyerEmail}
+                  onChange={(e) => setBuyerEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  type="email"
+                  required={paystackEnabled}
+                />
               </Field>
             </div>
 
@@ -148,14 +197,21 @@ export function EventDetail() {
             </div>
             {error && <p className="text-sm text-danger">{error}</p>}
             <Button
-              disabled={items.length === 0 || !buyerName.trim() || !buyerContact.trim() || submitting}
+              disabled={
+                items.length === 0 ||
+                !buyerName.trim() ||
+                !buyerContact.trim() ||
+                (paystackEnabled && !buyerEmail.trim()) ||
+                submitting
+              }
               onClick={handleCheckout}
             >
-              {submitting ? 'Submitting...' : 'Checkout'}
+              {submitting ? (paystackEnabled ? 'Waiting for payment...' : 'Submitting...') : paystackEnabled ? 'Pay with Paystack' : 'Checkout'}
             </Button>
             <p className="text-xs text-text-dim">
-              Online card/mobile-money payment is coming soon. For now, checkout reserves your order and the
-              organizer follows up directly to confirm payment and send your ticket code.
+              {paystackEnabled
+                ? 'Pay by card or mobile money via Paystack. Your ticket code(s) appear on screen the moment payment is confirmed.'
+                : "Online card/mobile-money payment isn't set up for this event yet. Checkout reserves your order and the organizer follows up directly to confirm payment and send your ticket code."}
             </p>
           </>
         )}
